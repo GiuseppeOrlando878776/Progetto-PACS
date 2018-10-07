@@ -1,5 +1,5 @@
-#ifndef SU2_ExprT
-#define SU2_ExprT
+#ifndef SU2_EXPRT
+#define SU2_EXPRT
 
 #include <iostream>
 
@@ -32,37 +32,48 @@ struct ExprT {
   /*
    * Cast operator to derived class (const version)
    */
-  operator const Derived&() const {
+  inline operator const Derived&() const {
     return static_cast<const Derived&>(*this);
   }
 
   /*
    * Cast operator to derived class (const version)
    */
-  operator Derived&() {
+  inline operator Derived&() {
     return static_cast<Derived>(*this);
   }
 
   /*
-   * Access operator (const version)
+   * \brief Access operator (const version)
   */
-  const Type& at(std::size_t i) const {
+  inline const Type& at(std::size_t i) const {
     return this->operator const Derived&().at(i);
   }
 
   /*
-   * Access operator (non const version)
+   * \brief Access operator (non const version)
   */
-  Type& at(std::size_t i) {
+  inline Type& at(std::size_t i) {
     return this->operator Derived&().at(i);
   }
 
   /*
-   * Size of the derived object
+   * \brief Size of the derived object
   */
   std::size_t size() const {
     return this->operator const Derived&().size();
   }
+
+  /*
+   * \brief Accessor to local data
+  */
+  inline Derived* getData() const {
+    return m_exdata;
+  }
+
+private:
+
+  Derived* m_exdata;
 
 }; /*--- End of class ExprT ----*/
 
@@ -106,7 +117,7 @@ ET_BINARY(MulT, e1.at(i)*e2.at(i))
 ET_BINARY(DivT, e1.at(i)/e2.at(i))
 ET_BINARY(MaxT, std::max(e1.at(i),e2.at(i)))
 ET_BINARY(MinT, std::min(e1.at(i),e2.at(i)))
-#undef EET_BINARY
+#undef ET_BINARY
 
 }   /*--- End of namespace Common ----*/
 
