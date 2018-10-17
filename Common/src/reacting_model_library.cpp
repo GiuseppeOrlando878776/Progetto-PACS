@@ -9,6 +9,20 @@
 
 namespace Framework {
 
+void ReactingModelLibrary::SetRiGas(RealVec& Ri) {
+  assert(Ri.size()==nSpecies);
+  for(auto i=0;i<nSpecies;++i)
+    Ri[i]=R_ungas/mMasses[i];
+}
+
+void ReactingModelLibrary::SetRgas(const RealVec& Ys,const RealVec& Ri) {
+  Rgas = 0.0;
+  assert(Ys.size()==nSpecies);
+  assert(Ri.size()==nSpecies);
+  for(auto i=0;i<nSpecies;++i)
+    Rgas += Ys[i]*Ri[i];
+}
+
 su2double ReactingModelLibrary::Density(const su2double& temp,const su2double& pressure) {
   su2double mol_mass = 0.0; // Moles over mass of mixture
   for(auto i=0;i<nSpecies;++i)
@@ -18,6 +32,7 @@ su2double ReactingModelLibrary::Density(const su2double& temp,const su2double& p
 }
 
 void ReactingModelLibrary::SetMolarFractions(const RealVec& xs) {
+  assert(xs.size() == nSpecies);
   Xs = xs;
 
   for(auto i=0;i<nSpecies;++i) {
@@ -26,14 +41,6 @@ void ReactingModelLibrary::SetMolarFractions(const RealVec& xs) {
 
     assert(Xs[i]<=1.0);
   }
-}
-
-void ReactingModelLibrary::SetRgas(const RealVec& Ys,const RealVec& Ri) {
-  Rgas = 0.0;
-  assert(Ys.size()==nSpecies);
-  assert(Ri.size()==nSpecies);
-  for(auto i=0;i<nSpecies;++i)
-    Rgas += Ys[i]*Ri[i];
 }
 
 void ReactingModelLibrary::SetMoleculesIDs(std::vector<unsigned>& Ids) {
@@ -46,6 +53,7 @@ void ReactingModelLibrary::SetMoleculesIDs(std::vector<unsigned>& Ids) {
 }
 
 void ReactingModelLibrary::SetMassFractions(const RealVec& ys) {
+  assert(ys.size() == nSpecies);
   Ys = ys;
 
   for(auto i=0;i<nSpecies;++i) {
@@ -131,6 +139,7 @@ void ReactingModelLibrary::ReadDataChem(const std::string& f_name) {
     std::cerr<<"Unable to open the chemical file: "<<f_name<<std::endl;
     std::exit(1);
   }
+}
 }
 
 void ReactingModelLibrary::ReadDataTransp(const std::string& f_name,const unsigned short& iSpecies) {
