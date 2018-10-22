@@ -36,13 +36,6 @@ namespace Common {
       return provider_name;
     }
 
-    /*!
-      *\brief Free an instance created by the factory
-      *\@param ptr pointer to be freed
-      */
-    virtual void FreeInstance(void* ptr) = 0;
-
-
   private:
 
     std::string provider_name;

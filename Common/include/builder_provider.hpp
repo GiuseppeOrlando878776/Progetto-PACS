@@ -31,11 +31,30 @@ class ProviderBuilder {
   /*!
    * \brief Create objects of type Concrete with zero arguments;
    */
-  std::unique_ptr<Abstract>  Create(typename Abstract::Arg1 arg) {
+  std::unique_ptr<Abstract> Create(typename Abstract::Arg1 arg) override {
     return std::unique_ptr<Abstract>(new Concrete(arg));
   }
 
+  /*!
+    *\brief Free an instance created by the factory
+    *\@param ptr pointer to be freed
+    */
+  void FreeInstance(void* ptr) = 0;
+
+
 }; /*-- End of class ProviderBuilder ---*/
+
+template<class Abstract,class Concrete>
+void ProviderBuilder<Abstract,Concrete>::FreeInstance(void* ptr)  {
+
+    assert(ptr != NULL);
+    auto obj = reinterpret_cast<ConcreteProvider<Abstract>*>(ptr);
+
+    assert(obj != NULL);
+    delete obj;
+}
+
+
 
 } /*-- End of namespace Common ---*/
 #endif

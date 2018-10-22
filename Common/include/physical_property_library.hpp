@@ -1,7 +1,6 @@
 #ifndef SU2_PHYSICAL_PROPERTY_LIBRARY
 #define SU2_PHYSICAL_PROPERTY_LIBRARY
 
-#include "concrete_provider.hpp"
 #include "builder_provider.hpp"
 #include "datatype_structure.hpp"
 
@@ -11,10 +10,6 @@ namespace Framework  {
     * /brief Provides an abstract interface for libraries that compute the physical properties.
     */
     class PhysicalPropertyLibrary {
-
-    public:
-      typedef Common::ConcreteProvider<PhysicaalChemicalLibrary> Provider;
-      typedef const std::string& Arg1;
 
     public:
 
@@ -51,6 +46,8 @@ namespace Framework  {
     protected:
 
        std::string Lib_Path; /*!\brief Path to some input library data */
+
+       bool Lib_Setup; /*!\brief Setup library */
 
   }; /*-- End of class PhysicalPropertyLibrary ---*/
 

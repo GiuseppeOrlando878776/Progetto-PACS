@@ -32,21 +32,10 @@ public:
     *\brief Free an instance created by the factory
     *\@param ptr pointer to be freed
     */
-  void FreeInstance(void*);
+  virtual std::unique_ptr<Base>  Create(typename Base::Arg1 arg) = 0;
 
 
 }; /*-- End of class ConcreteProvider ---*/
-
-
-template<class Base>
-void ConcreteProvider<Base>::FreeInstance(void* ptr)  {
-
-    assert(ptr != NULL);
-    auto obj = reinterpret_cast<ConcreteProvider<Base>*>(ptr);
-
-    assert(obj != NULL);
-    delete obj;
-}
 
 
 } /*-- End of namespace Common ---*/

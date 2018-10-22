@@ -11,6 +11,8 @@ namespace Framework  {
     class PhysicalChemicalLibrary: public Framework::PhysicalPropertyLibrary {
 
     public:
+      typedef Common::ConcreteProvider<PhysicalChemicalLibrary> Provider;
+      typedef const std::string& Arg1;
       typedef std::vector<su2double> RealVec;
       typedef std::vector<RealVec> RealMatrix;
 
@@ -29,7 +31,7 @@ namespace Framework  {
       /*!
        * \brief Default destructor.
        */
-       virtual ~PhysicalPropertyLibrary() = default;
+       virtual ~PhysicalChemicalLibrary() = default;
 
       /*!
          * Get the number of species in the mixture
@@ -60,104 +62,34 @@ namespace Framework  {
        }
 
        /*!
-        * \brief Returns the laminar Prandtl number
-        */
-       virtual su2double GetPrandtl_Lam(void) = 0;
-
-       /*!
          * Set the constant of gases for each species [J/(Kg*K)]
          */
-       virtual void SetRiGas(RealVec& Ri) = 0;
+       virtual void SetRiGas(void) = 0;
 
        /*!
-         * Get the constant of perfect gases [J/(Kg*K)]
+         * \brief Get the constant of perfect gases [J/(Kg*K)]
          */
        virtual su2double GetRgas(void) const = 0;
 
        /*!
-         * Set the constant of perfect gases [J/(Kg*K)]
+         * \brief Set the constant of perfect gases for the mixture [J/(Kg*K)]
+         * \param[in] ys The vector of the mass fractions of species (input)
          */
-       virtual void SetRgas(const RealVec& Ys,const RealVec& Ri) = 0;
+       virtual void SetRgas(const RealVec& ys) = 0;
+
+       /*!
+         * \brief Compute the constant of perfect gases for the mixture [J/(Kg*K)]
+         * \param[in] ys The vector of the mass fractions of species (input)
+         */
+       virtual su2double ComputeRgas(const RealVec& ys) = 0;
+
 
        /*!
          * \brief Get the molar masses of the species
-         * \pre mm.size() = number of species
          */
-       virtual void GetMolarMasses(RealVec& mm) = 0;
+       virtual void GetMolarMasses(RealVec& mm) const = 0;
 
-       /*!
-         * \brief Set the IDs of the molecules in the mixture
-         */
-       virtual void SetMoleculesIDs(std::vector<unsigned>& Ids) = 0;
-
-       /*!
-         * \brief Calculates the thermal conductivity given temperature and pressure
-         * \param[in] temp - temperature
-         * \param[in] pressure - pressure
-         * \return Total thermal conductivity for thermal equilibrium
-         */
-       virtual su2double Lambda(const su2double temp, const su2double pressure) = 0;
-
-       /*!
-         * \brief Calculates the dynamic viscosity given temperature and pressure
-         * \param[in] temp - temperature
-         * \param[in] pressure - pressure
-         */
-       virtual su2double Eta(const su2double temp,const su2double pressure) = 0;
-
-       /*!
-         * \brief Calculates the specific heat ratio and the speed of sound in thermal equilibrium.
-         * \param[in] temp - temperature
-         * \param[in] pressure - pressure
-         * \param[in] rho - density
-         * \return gamma - specific heat ratio (output)
-         * \return sound_speed - speed of sound (output)
-       */
-       virtual su2double Gamma_SoundSpeed(const su2double temp,const su2double pressure,const su2double rho,
-                                          su2double& gamma,su2double& sound_speed) = 0;
-
-       /*!
-         * \brief Calculates the specific heat ratio and the speed of sound in thermal equilibrium.
-         * \param[in] temp - temperature
-         * \param[in] pressure - pressure
-         * \param[in] rho - density
-         * \return gamma - specific heat ratio (output)
-         * \return sound_speed - speed of sound (output)
-       */
-       virtual void Gamma_FrozenSoundSpeed(const su2double temp,const su2double pressure,const su2double rho,
-                                           su2double& gamma,su2double& sound_speed) = 0;
-
-       /*!
-         * \brief Calculates the density, the enthalpy and the internal energy
-         * \param[in] temp - temperature
-         * \param[in] pressure - pressure
-         * \param[out] dhe - Vector with density, enthalpy, energy (output) for thermal equilibrium
-       */
-       virtual void Density_Enthalpy_Energy(const su2double temp,const su2double pressure,RealVec& dhe) = 0;
-
-       /*!
-         * \brief Calculates the density given temperature and pressure.
-         * \param[in] temp - temperature
-         * \param[in] pressure - pressure
-       */
-       virtual su2double Density(const su2double temp,const su2double pressure) = 0;
-
-       /*!
-         * \brief Calculates the internal energy at given temperature and pressure.
-         * \param[in] temp temperature
-         * \param[in] pressure pressure
-       */
-       virtual su2double Energy(const su2double temp,const su2double pressure) = 0;
-
-       /*!
-         * Calculates the enthalpy in LTE conditions
-         * at given temperature and pressure.
-         * \param[in] temp      temperature
-         * \param[in] pressure  pressure
-       */
-       virtual su2double Enthalpy(const su2double temp,const su2double pressure) = 0;
-
-       /*!
+      /*!
          * \brief Gets the molar fractions.
          * \param[in] ys The vector of the mass fractions of species (input)
          * \param[out] xs The vector of the molar fractions of species (output)
@@ -189,7 +121,68 @@ namespace Framework  {
         * \brief Sets the mole fractions of elements Xn starting from the given species mass fractions Yn
         * \param[in] ys - The vector of the mass fractions of species
        */
-       virtual void SetMolarFromMass(const RealVec& ys) = 0;
+      // virtual void SetMolarFromMass(const RealVec& ys) = 0;
+
+       /*!
+          * \brief Calculates the thermal conductivity given temperature
+          * \param[in] temp - temperature
+          * \return Total thermal conductivity for thermal non equilibrium
+          */
+        virtual su2double Lambda(const su2double temp) = 0;
+
+       /*!
+          * \brief Calculates the dynamic viscosity given temperature and
+          * \param[in] temp - temperature
+          * \return Total molecular viscosity for thermal non equilibrium
+          */
+        virtual su2double Eta(const su2double temp) = 0;
+
+        /*!
+          * \brief Calculates the specific heat at constant pressure
+          * \param[in] temp - temperature
+          * \return Cp - specific heat at constant pressure
+        */
+        virtual su2double ComputeCP(const su2double temp) = 0;
+
+        /*!
+          * \brief Calculates the specific heat ratio and the speed of sound.
+          * \param[in] temp - temperature
+          * \param[out] gamma - specific heat ratio
+          * \param[out] sound_speed - speed of sound
+        */
+        virtual void Gamma_FrozenSoundSpeed(const su2double temp,su2double& gamma,su2double& sound_speed) = 0;
+
+
+        /*!
+          * \brief Calculates the density, the enthalpy and the internal energy
+          * \param[in] temp - temperature
+          * \param[in] pressure - pressure
+          * \param[out] dhe - Vector with density, enthalpy, energy (output) for thermal equilibrium
+        */
+        virtual void Density_Enthalpy_Energy(const su2double temp,const su2double pressure,RealVec& dhe) = 0;
+
+        /*!
+          * \brief Calculates the density given temperature and pressure.
+          * \param[in] temp - temperature
+          * \param[in] pressure - pressure
+        */
+        virtual su2double Density(const su2double temp,const su2double pressure) = 0;
+
+        /*!
+          * \brief Calculates the internal energy at given temperature and pressure.
+          * \param[in] temp temperature
+          * \param[in] pressure pressure
+        */
+        virtual su2double Energy(const su2double temp,const su2double pressure) = 0;
+
+        /*!
+          * Calculates the enthalpy in LTE conditions
+          * at given temperature and pressure.
+          * \param[in] temp      temperature
+          * \param[in] pressure  pressure
+        */
+        virtual su2double Enthalpy(const su2double temp,const su2double pressure) = 0;
+
 
        /*!
         * \brief Returns the formation enthalpies per unit mass of species
@@ -200,10 +193,9 @@ namespace Framework  {
        /*!
         * \brief Returns the total enthalpies per unit mass of species
         * \param[in] temp - the mixture temperature
-        * \param[in] pressure - the mixture pressure
         * \return hsTot - species total enthalpy (output)
        */
-       virtual su2double GetTotEnthalpy(const su2double temp,const su2double pressure) = 0;
+       virtual su2double ComputeEnthalpy(const su2double temp) = 0;
 
        /*!
         * \brief Returns the mass production/destruction terms [kg m^-3 s^-1] in chemical
@@ -223,24 +215,20 @@ namespace Framework  {
         * \param[in] pressure the mixture pressure
         * \param[in] ys the species mass fractions
         * \param[in] rho the mixture density
-        * \param[in] omega the mass producrtion term
+        * \param[in] omega the mass production term
         * \param[in] omegav the source term
        */
-       virtual void GetSourceTerm(const su2double temp, const su2double pressure, const su2double rho,
-                                  RealVec& ys, RealVec& omega, RealVec& omegav) = 0;
+       //virtual void GetSourceTerm(const su2double temp, const su2double pressure, const su2double rho,
+      //                            RealVec& ys, RealVec& omega, RealVec& omegav) = 0;
 
       /*!
        * Returns the diffusion velocities of species multiplied by the species
        * densities for nonequilibrium computations
-       * \param[in] temp the mixture temperature
-       * \param[in] pressure the mixture pressure
-       * \param[in] normConcGradients the cell normal gradients of species mass fractions
-       * \param[in] rhoUdiff   (1) Constant Lewis number
-       *                   (2) Stefan-Maxwell model: rho*species diffusive velocity
-       *                   (3) Fick, Fick+Ramshaw  : rowwise-ordered matrix of coefficients
+       * \param[in] temp - the mixture temperature
+       * \param[in] rho - the mixture density
+       * \return rhoUdiff  - Diffusion coefficient with constant Lewis number
        */
-       virtual void GetRhoUdiff(const su2double temp, const su2double pressure,
-                                RealVec& normConcGradients, RealVec& rhoUdiff) = 0;
+       virtual su2double GetRhoUdiff(const su2double temp, const su2double rho) = 0;
 
      /*!
       * Returns the diffusion velocities of species multiplied by the species
@@ -249,7 +237,7 @@ namespace Framework  {
       * \param[in] pressure the mixture pressure
       */
       virtual void GetDij_fick(RealVec& dx,const su2double pressure,const su2double temperature,
-                               RealMatrix& Dij, RealVec& rhoUdiff) = 0;
+                               RealMatrix& Dij) = 0;
 
     protected:
 

@@ -2,122 +2,150 @@
 #define SU2_EXPRT
 
 #include <iostream>
+#include <type_traits>
+#include "su2_assert.hpp"
 
 namespace Common {
 
+  /**
+    * Definition of a wrapper base expression class ExprT: derived objects from ExprT use the CRTP technique
+    * The expression template accepts two template parameters:
+    * 1- the derived expression
+    * 2- the return type of the epxression
+    * \author G. Orlando
+  */
 
-template <typename T, int N, int M>
-struct ETuple {
-  typedef T Type;
-  enum {Size1=N};
-  enum {Size2=M};
-};
+  template <class Derived, typename T>
+  struct ExprT {
 
-/**
-  * Definition of a wrapper base expression class ExprT: derived objects from ExprT use the CRTP technique
-  * The expression template accepts two template parameters:
-  * 1- the derived expression
-  * 2- a tuple argument storing all arguments of the derived expression: these arguments
-  *    arguments cannot be provided directly by 'Derived' (via typedefs or enum) because
-  *    at the moment of instantiation, 'Derived' is still an incomplete type, being
-  *    deriving from ExprT itself.
-  * @author G. Orlando
- */
+    using Type = T;
 
-template <typename Derived, typename Tuple>
-struct ExprT {
+    /*!
+      *\brief Cast operator to derived class (const version)
+    */
+    inline operator const Derived&() const {
+      return static_cast<const Derived&>(*this);
+    }
 
-  typedef typename Tuple::Type Type;
+    /*!
+     *\brief  Cast operator to derived class (non const version)
+    */
+    inline operator Derived&() {
+      return static_cast<Derived>(*this);
+    }
 
-  /*
-   * Cast operator to derived class (const version)
+   /*!
+    * \brief Access operator (const version)
    */
-  inline operator const Derived&() const {
-    return static_cast<const Derived&>(*this);
-  }
+   inline const Type& operator[](std::size_t i) const {
+     return this->operator const Derived&().operator[](i);
+   }
 
-  /*
-   * Cast operator to derived class (const version)
+   /*!
+    * \brief Access operator (non const version)
    */
-  inline operator Derived&() {
-    return static_cast<Derived>(*this);
-  }
+   inline Type& operator[](std::size_t i) {
+     return this->operator Derived&().operator[](i);
+   }
 
-  /*
-   * \brief Access operator (const version)
-  */
-  inline const Type& at(std::size_t i) const {
-    return this->operator const Derived&().at(i);
-  }
+   /*!
+    * \brief Access operator (const version)
+   */
+   static inline Type& at(std::size_t i) {
+     return Derived::at(i);
+   }
 
-  /*
-   * \brief Access operator (non const version)
-  */
-  inline Type& at(std::size_t i) {
-    return this->operator Derived&().at(i);
-  }
+   /*!
+    * \brief Access operator (non const version)
+   */
+   /*
+   inline const Type& at(std::size_t i) const {
+     return this->operator const Derived&().at(i);
+   }
+   */
 
-  /*
-   * \brief Size of the derived object
-  */
-  std::size_t size() const {
-    return this->operator const Derived&().size();
-  }
+   /*!
+    * \brief Size of the derived object
+   */
+   std::size_t size() const {
+     return this->operator const Derived&().size();
+   }
 
-  /*
-   * \brief Accessor to local data
-  */
-  inline Derived* getData() const {
-    return m_exdata;
-  }
+ }; /*--- End of class ExprT ----*/
 
-private:
+  /**
+   * Definition of an expression template class for basic binary operations.
+   * A macro is used to save code duplication.
+   * The expression template accepts two parameters:
+   * 1. left operand type
+   * 2. right operand type.
+   *
+   * \author G. Orlando
+   */
 
-  Derived* m_exdata;
+   #define TYPE(a) typename a::Type
+   #define EETYPE(a) ExprT<a,TYPE(a)>
 
-}; /*--- End of class ExprT ----*/
-
-
-/**
- * Definition of an expression template class for basic binary operations.
- * A macro is used to save code duplication.
- * The expression template accepts two parameters:
- * 1. first operand expression type
- * 2. second operand expression type.
- *
- * @author G. Orlando
- */
-
-#define TUPLE_TYPE(a) typename a::Type
-#define TUPLE_VEC(a,b) ETuple<TUPLE_TYPE(a),std::max(a::Size1, b::Size1),0>
-
-
-#define ET_BINARY(OpName,operation) \
-template <typename Left, typename Right>			\
-class OpName : public ExprT<OpName<Left,Right>, TUPLE_VEC(Left,Right)> {	\
-public:						\
-  OpName(TUPLE_TYPE(Left) l, TUPLE_TYPE(Right) r) :	    \
-    ExprT<OpName<Left,Right>, TUPLE_VEC(Left,Right)>(this), e1(l), e2(r) {}	\
+   #define ET_BINARY(OpName,operation) \
+   template <class Left, class Right>			\
+   struct OpName : public ExprT<OpName<Left,Right>, TYPE(Left)> {	\
+     static_assert(std::is_convertible<TYPE(Left),TYPE(Right)>::value,"The types are not convertible"); \
+                          \
+     OpName(EETYPE(Left) l, EETYPE(Right) r) :	    \
+     ExprT<OpName<Left,Right>, TYPE(Left)>(this), e1(l), e2(r) {}	\
     									\
-  TUPLE_TYPE(Left) at(std::size_t i) const {
-    return operation;\
-  } \
+     inline TYPE(Left)& operator[](std::size_t i) { \
+       return operation;\
+     } \
+                        \
+     inline TYPE(Left)& operator[](std::size_t i) const { \
+       return operation;\
+     } \
+                      \
+     static inline TYPE(Left)& at(std::size_t i) { \
+       return operation;\
+     } \
+                      \
+     /*TYPE(Left)& at(std::size_t i) const {*/ \
+    /*   return operation;*/\
+    /* }*/ \
 									\
-  std::size_t size() const {
-    return Left.size();
-  }		\
- private:								\
-    TUPLE_TYPE(Left) e1;							\
-    TUPLE_TYPE(Right) e2;							\
-};
+    std::size_t size() const { \
+      SU2_Assert(e1.size() == e2.size(),"The size of vectors is not the same"); \
+      return e1.size();\
+    }		\
+                          \
+   private:								\
+      const EETYPE(Left)& e1;							\
+      const EETYPE(Right)& e2;							\
+  };
 
-ET_BINARY(AddT, e1.at(i)+e2.at(i))
-ET_BINARY(SubT, e1.at(i)-e2.at(i))
-ET_BINARY(MulT, e1.at(i)*e2.at(i))
-ET_BINARY(DivT, e1.at(i)/e2.at(i))
-ET_BINARY(MaxT, std::max(e1.at(i),e2.at(i)))
-ET_BINARY(MinT, std::min(e1.at(i),e2.at(i)))
-#undef ET_BINARY
+  ET_BINARY(Add, Left::at(i)+Right::at(i))
+  ET_BINARY(Sub, Left::at(i)-Right::at(i))
+  ET_BINARY(Mul, Left::at(i)*Right::at(i))
+  ET_BINARY(Div, Left::at(i)/Right::at(i))
+  //ET_BINARY(Max, std::max(e1.at(i),e2.at(i)))
+  //ET_BINARY(Min, std::min(e1.at(i),e2.at(i)))
+  #undef ET_BINARY
+
+  template <class Left, class Right>
+  inline Add<Left,Right> operator+(const Left& l, const Right& r){return  Add<Left,Right>(l,r);}
+
+  template <class Left, class Right>
+  inline Sub<Left,Right> operator-(const Left& l, const Right& r){return  Sub<Left,Right>(l,r);}
+
+  template <class Left, class Right>
+  inline Mul<Left,Right> operator*(const Left& l, const Right& r){return  Mul<Left,Right>(l,r);}
+
+  template <class Left>
+  inline Mul<Left,double> operator*=(const Left& l, const double& r){return  Mul<Left,double>(l,r);}
+
+  template <class Left, class Right>
+  inline Div<Left,Right> operator/(const Left& l, const Right& r){return  Div<Left,Right>(l,r);}
+
+  template <class Left>
+  inline Div<Left,double> operator/=(const Left& l, const double& r){return  Div<Left,double>(l,r);}
+
 
 }   /*--- End of namespace Common ----*/
 
