@@ -9,8 +9,7 @@ namespace Common {
 template <typename T, int N, int M>
 struct ETuple {
   typedef T Type;
-  enum {Size1=N};
-  enum {Size2=M};
+  enum {Size1 = N,Size2 = M};
 };
 
 /**
