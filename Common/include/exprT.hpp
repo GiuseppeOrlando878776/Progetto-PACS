@@ -31,7 +31,7 @@ namespace Common {
      *\brief  Cast operator to derived class (non const version)
     */
     inline operator Derived&() {
-      return static_cast<Derived>(*this);
+      return static_cast<Derived&>(*this);
     }
 
    /*!
@@ -120,32 +120,37 @@ namespace Common {
       const EETYPE(Right)& e2;							\
   };
 
-  ET_BINARY(Add, Left::at(i)+Right::at(i))
-  ET_BINARY(Sub, Left::at(i)-Right::at(i))
-  ET_BINARY(Mul, Left::at(i)*Right::at(i))
-  ET_BINARY(Div, Left::at(i)/Right::at(i))
+  ET_BINARY(Add, Left::at(i) + Right::at(i))
+  ET_BINARY(Sub, Left::at(i) - Right::at(i))
+  ET_BINARY(Mul, Left::at(i) * Right::at(i))
+  ET_BINARY(Div, Left::at(i) / Right::at(i))
   //ET_BINARY(Max, std::max(e1.at(i),e2.at(i)))
   //ET_BINARY(Min, std::min(e1.at(i),e2.at(i)))
   #undef ET_BINARY
 
   template <class Left, class Right>
-  inline Add<Left,Right> operator+(const Left& l, const Right& r){return  Add<Left,Right>(l,r);}
-
-  template <class Left, class Right>
-  inline Sub<Left,Right> operator-(const Left& l, const Right& r){return  Sub<Left,Right>(l,r);}
-
-  template <class Left, class Right>
-  inline Mul<Left,Right> operator*(const Left& l, const Right& r){return  Mul<Left,Right>(l,r);}
+  inline Add<Left,Right> operator +(const Left& l, const Right& r){return  Add<Left,Right>(l,r);}
 
   template <class Left>
-  inline Mul<Left,double> operator*=(const Left& l, const double& r){return  Mul<Left,double>(l,r);}
+  inline Add<Left,double> operator +=(const Left& l, const double& r){return  Mul<Left,double>(l,r);}
 
   template <class Left, class Right>
-  inline Div<Left,Right> operator/(const Left& l, const Right& r){return  Div<Left,Right>(l,r);}
+  inline Sub<Left,Right> operator -(const Left& l, const Right& r){return  Sub<Left,Right>(l,r);}
 
   template <class Left>
-  inline Div<Left,double> operator/=(const Left& l, const double& r){return  Div<Left,double>(l,r);}
+  inline Sub<Left,double> operator -=(const Left& l, const double& r){return  Mul<Left,double>(l,r);}
 
+  template <class Left, class Right>
+  inline Mul<Left,Right> operator *(const Left& l, const Right& r){return  Mul<Left,Right>(l,r);}
+
+  template <class Left>
+  inline Mul<Left,double> operator *=(const Left& l, const double& r){return  Mul<Left,double>(l,r);}
+
+  template <class Left, class Right>
+  inline Div<Left,Right> operator /(const Left& l, const Right& r){return  Div<Left,Right>(l,r);}
+
+  template <class Left>
+  inline Div<Left,double> operator /=(const Left& l, const double& r){return  Div<Left,double>(l,r);}
 
 }   /*--- End of namespace Common ----*/
 

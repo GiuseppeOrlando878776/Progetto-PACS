@@ -89,7 +89,7 @@ void ReactingModelLibrary::SetMassFractions(const RealVec& ys) {
 void ReactingModelLibrary::GetMolarFractions(const RealVec& ys, RealVec& xs) {
   SU2_Assert(ys.size() == nSpecies,"The dimension of vector ys doesn't match nSpecies");
   xs.clear();
-  xs.reserve(nSpecies);
+  xs.resize(nSpecies);
   su2double massTot=0.0;
 
   for (unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
@@ -97,7 +97,7 @@ void ReactingModelLibrary::GetMolarFractions(const RealVec& ys, RealVec& xs) {
 
     const su2double mm = ys[iSpecies]/mMasses[iSpecies];
     massTot += mm;
-    xs.push_back(mm);
+    xs[iSpecies] = mm;
   }
   std::for_each(xs.begin(),xs.end(),[massTot](double& elem){elem /= massTot;});
 }
@@ -108,14 +108,14 @@ void ReactingModelLibrary::GetMolarFractions(const RealVec& ys, RealVec& xs) {
 void ReactingModelLibrary::GetMassFractions(const RealVec& xs, RealVec& ys) {
   SU2_Assert(xs.size() == nSpecies,"The dimension of vector xs doesn't match nSpecies");
   ys.clear();
-  ys.reserve(nSpecies);
+  ys.resize(nSpecies);
   su2double massTot=0.0;
 
   for (unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
     SU2_Assert(xs[iSpecies] <= 1.0,std::string("The molar fraction of species number " + std::to_string(iSpecies) + "is greater than 1"));
     const su2double mm = xs[iSpecies] * mMasses[iSpecies];
     massTot += mm;
-    ys.push_back(mm);
+    ys[iSpecies] = mm;
   }
   std::for_each(ys.begin(),ys.end(),[massTot](double& elem){elem /= massTot;});
 
