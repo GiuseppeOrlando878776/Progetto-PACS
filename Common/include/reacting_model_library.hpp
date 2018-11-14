@@ -26,19 +26,19 @@ namespace Framework {
   public: // functions
 
     /*!
-      * \brief Constructor with the name of the library.
-      */
+     * \brief Constructor with the name of the library.
+     */
     explicit ReactingModelLibrary(const std::string& name):PhysicalChemicalLibrary(),Lib_Name(name),Rgas(),Le() {}
 
 
     /*!
-      * \brief Default destructor.
-      */
+     * \brief Default destructor.
+     */
     ~ReactingModelLibrary() = default;
 
     /*!
-      * \brief Setups the library name.
-      */
+     * \brief Setups the library name.
+     */
     inline void SetLibName(const std::string& library_name) {
       Lib_Name = library_name;
     }
@@ -51,72 +51,64 @@ namespace Framework {
     }
 
     /*!
-      * \brief Setups the data of the library.
-      */
+     * \brief Setups the data of the library.
+     */
     void Setup(void);
 
     /*!
-      * \brief Unsetups the data of the library.
-      */
+     * \brief Unsetups the data of the library.
+     */
     void Unsetup(void);
 
     /*!
-     * \brief Returns the laminar Prandtl number
+     * \brief Set the constant of gases for each species [J/(Kg*K)]
      */
-    //inline su2double GetPrandtl_Lam(void) {
-    //  return Lam_Pr;
-    //}
-
-    /*!
-      * \brief Set the constant of gases for each species [J/(Kg*K)]
-      */
     void SetRiGas(void) override;
 
     /*!
-      * \brief Get the constant of perfect gases [J/(Kg*K)]
-      */
+     * \brief Get the constant of perfect gases [J/(Kg*K)]
+     */
     inline su2double GetRgas(void) const override {
       return Rgas;
     }
 
     /*!
-      * \brief Set the constant of perfect gases for the mixture[J/(Kg*K)]
-      * \param[in] ys The vector of the mass fractions of species
-      */
+     * \brief Set the constant of perfect gases for the mixture[J/(Kg*K)]
+     * \param[in] ys - The vector of the mass fractions of species
+     */
     void SetRgas(const RealVec& ys) override;
 
     /*!
-      * Compute the constant of perfect gases for the mixture [J/(Kg*K)]
-      * \param[in] ys The vector of the mass fractions of species
-      */
+     * Compute the constant of perfect gases for the mixture [J/(Kg*K)]
+     * \param[in] ys - The vector of the mass fractions of species
+     */
     virtual su2double ComputeRgas(const RealVec& ys) = 0;
 
-
     /*!
-      * \brief Get the molar masses of the species
-      */
+     * \brief Get the molar masses of the species
+     */
     inline void GetMolarMasses(RealVec& mm) const override {
       mm=mMasses;
     }
 
     /*!
-      * \brief Gets the molar fractions.
-      * \param[in] ys The vector of the mass fractions of species (input)
-      * \param[out] xs The vector of the molar fractions of species (output)
+     * \brief Gets the molar fractions.
+     * \param[in] ys - The vector of the mass fractions of species (input)
+     * \param[out] xs - The vector of the molar fractions of species (output)
     */
     void GetMolarFractions(const RealVec& ys, RealVec& xs) override;
 
     /*!
-     * \brief Sets the molar fractions of elements Xn.This function should be called before getting
-     * \brief thermodynamic quantities or transport properties.
+     * Sets the molar fractions of elements Xn.This function should be called before getting
+     * thermodynamic quantities or transport properties.
      * \param[in] xn - The vector of the mass fractions of elements
     */
     void SetMolarFractions(const RealVec& xs) override;
 
     /*!
      * \brief Gets the mass fractions.
-     * \param[in] xs The vector of the molar fractions of species (input)
-     * \param[out] ys The vector of the mass fractions of species (output)
+     * \param[in] xs - The vector of the molar fractions of species (input)
+     * \param[out] ys - The vector of the mass fractions of species (output)
      */
     void GetMassFractions(const RealVec& xs, RealVec& ys) override;
 
@@ -134,86 +126,37 @@ namespace Framework {
     //void SetMolarFromMass(const RealVec& ys) override;
 
     /*!
-      * \brief Calculates the thermal conductivity given temperature
-      * \param[in] temp - temperature
-      * \return thermal conductivity for each species
-      */
-    void ComputeConductivities(const su2double temp);
-
-    /*!
-      * \brief Calculates the thermal conductivity given temperature
-      * \param[in] temp - temperature
-      * \return Total thermal conductivity
-      */
-    su2double Lambda(const su2double temp) override;
-
-    /*!
-      * \brief Calculates the dynamic viscosity given temperature
-      * \param[in] temp - temperature
-      * \return Molecular viscosity for each species
-      */
-    void ComputeViscosities(const su2double temp);
-
-
-    /*!
-      * \brief Calculates the dynamic viscosity given temperature
-      * \param[in] temp - temperature
-      * \return Molecular viscosity for the moxture in thermal non equilibrium
-      */
-    su2double Eta(const su2double temp) override;
-
-    /*!
-      * \brief Calculates the specific heat ratio
-      */
-    //su2double Gamma(void) override;
-
-    /*!
-      * \brief Calculates the specific heat ratio and the speed of sound.
-      * \param[in] temp - temperature
-      * \return Cp - specific heat at constant pressure
-    */
-    su2double ComputeCP(const su2double temp) override;
-
-    /*!
-      * \brief Calculates the specific heat ratio and the speed of sound.
-      * \param[in] temp - temperature
-      * \return gamma - specific heat ratio (output)
-      * \return sound_speed - speed of sound (output)
+     * \brief Computes the specific heat ratio and the speed of sound.
+     * \param[in] temp - temperature
+     * \return gamma - specific heat ratio (output)
+     * \return sound_speed - speed of sound (output)
     */
     void Gamma_FrozenSoundSpeed(const su2double temp, su2double& gamma, su2double& sound_speed) override;
 
     /*!
-      * \brief Calculates the density, the enthalpy and the internal energy
-      * \param[in] temp - temperature
-      * \param[in] pressure - pressure
-      * \param[out] dhe - Vector with density, enthalpy, energy (output)
-    */
-    //void Density_Enthalpy_Energy(const su2double temp, const su2double pressure, RealVec& dhe) override;
+     * \brief Computes the density, the enthalpy and the internal energy
+     * \param[in] temp - temperature
+     * \param[in] pressure - pressure
+     * \param[in] ys - mass fractions
+     * \param[out] dhe - Vector with density, enthalpy, energy (output) for thermal equilibrium
+     */
+    void Density_Enthalpy_Energy(const su2double temp, const su2double pressure, const RealVec& ys, RealVec& dhe) override;
 
     /*!
-      * \brief Calculates the density given temperature and pressure.
-      * \param[in] temp - temperature
-      * \param[in] pressure - pressure
+     * \brief Computes the density at given temperature and pressure.
+     * \param[in] temp - temperature
+     * \param[in] pressure - pressure
+     * \param[in] ys - mass fractions
     */
-    /*
-    inline su2double Density(const su2double temp, const su2double pressure) override {
-      return pressure/(Rgas*temp);
-    }
-    */
+    su2double ComputeDensity(const su2double temp, const su2double pressure, const RealVec& ys);
 
     /*!
-      * \brief Calculates the internal energy at given temperature and pressure.
-      * \param[in] temp temperature
-      * \param[in] pressure pressure
-    */
-    //su2double Energy(const su2double temp, const su2double pressure) override;
-
-    /*!
-      * \brief Calculates the enthalpy at given temperature and pressure.
-      * \param[in] temp      temperature
-      * \param[in] pressure  pressure
-    */
-    //su2double Enthalpy(const su2double temp, const su2double pressure) override;
+     * \brief Computes the internal energy per unit of mass at given temperature and pressure.
+     * \param[in] temp - temperature
+     * \param[in] pressure - pressure
+     * \param[in] ys - mass fractions
+     */
+    su2double ComputeEnergy(const su2double temp, const su2double pressure, const RealVec& ys) = 0;
 
     /*!
      * \brief Returns the formation enthalpies per unit mass of species
@@ -224,32 +167,71 @@ namespace Framework {
     }
 
     /*!
-     * \brief Returns the total enthalpies per unit mass of species
+     * \brief Returns the static enthalpy per unit of mass
      * \param[in] temp - the mixture temperature
+     * \param[in] ys - mass fractions
      * \return hsTot - species total enthalpy
     */
-    su2double ComputeEnthalpy(const su2double temp) override;
+    su2double ComputeEnthalpy(const su2double temp,const RealVec& ys) override;
+
+    /*!
+      * \brief Computes the specific heat ratio and the speed of sound.
+      * \param[in] temp - temperature
+      * \param[in] ys - mass fractions
+      * \return Specific heat at constant pressure
+    */
+    su2double ComputeCP(const su2double temp,const RealVec& ys) override;
+
+    /*!
+     * \brief Computes the thermal conductivity for each species at given temperature
+     * \param[in] temp - temperature
+     * \return Thermal conductivity for each species
+     */
+    void ComputeConductivities(const su2double temp);
+
+    /*!
+      * \brief Computes the thermal conductivity at given temperature
+      * \param[in] temp - temperature
+      * \param[in] ys - mass fractions
+      * \return Mixture thermal conductivity
+      */
+    su2double ComputeLambda(const su2double temp,const RealVec& ys) override;
+
+    /*!
+      * \brief Computes the dynamic viscosity for each species at given temperature
+      * \param[in] temp - temperature
+      * \return Molecular viscosity for each species
+      */
+    void ComputeViscosities(const su2double temp);
+
+    /*!
+      * \brief Computes the dynamic viscosity at given temperature
+      * \param[in] temp - temperature
+      * \param[in] ys - mass fractions
+      * \return Molecular viscosity for the mixture in thermal non equilibrium
+      */
+    su2double ComputeEta(const su2double temp,const RealVec& ys) override;
 
     /*!
      * \brief Returns the mass production/destruction terms [kg m^-3 s^-1] in CHEMICAL
      * \brief NONEQUILIBRIUM based on Arrhenius's formula.
-     * \param[in] pressure the mixture pressure
-     * \param[in] temp the mixture temperature
-     * \param[in] ys the species mass fractions
-     * \param[in] omega the mass production terms
-     * \param[in] jacobian the Jacobian matrix of the mass production terms
+     * \param[in] pressure - the mixture pressure
+     * \param[in] temp - the mixture temperature
+     * \param[in] ys - the species mass fractions
+     * \param[in] omega - the mass production terms
+     * \param[in] jacobian - the Jacobian matrix of the mass production terms
     */
     void GetMassProductionTerm(const su2double temp, const su2double pressure, const su2double rho,
                                RealVec& ys, RealVec& omega, RealMatrix& jacobian) override;
 
     /*!
      * Returns the source terms species continuity and energy equations
-     * \param[in] temp the mixture temperature
-     * \param[in] pressure the mixture pressure
-     * \param[in] ys the species mass fractions
-     * \param[in] rho the mixture density
-     * \param[in] omega the mass producrtion term
-     * \param[in] omegav the source term
+     * \param[in] temp - the mixture temperature
+     * \param[in] pressure - the mixture pressure
+     * \param[in] ys - the species mass fractions
+     * \param[in] rho - the mixture density
+     * \param[in] omega - the mass producrtion term
+     * \param[in] omegav - the source term
     */
     //void GetSourceTerm(const su2double temp, const su2double pressure, const su2double rho,
     //                   RealVec& ys,RealVec& omega,RealVec& omegav) override;
@@ -259,18 +241,17 @@ namespace Framework {
     * densities for nonequilibrium computations
     * \param[in] temp - the mixture temperature
     * \param[in] rho  - the mixture density
-    * \return rhoUdiff - Diffusion coefficient with constant Lewis number
+    * \return Diffusion coefficient with constant Lewis number for each species
     */
-    su2double GetRhoUdiff(const su2double temp,const su2double rho) override;
+    RealVec GetRhoUdiff(const su2double temp, const su2double rho) override;
 
    /*!
     * Returns the diffusion velocities of species multiplied by the species
     * densities for nonequilibrium computations
-    * \param[in] temp the mixture temperature
-    * \param[in] pressure the mixture pressure
+    * \param[in] temp - the mixture temperature
+    * \param[in] pressure - the mixture pressure
     */
-    void GetDij_fick(RealVec& dx,const su2double pressure,const su2double temperature,
-                     RealMatrix& Dij) override;
+    void GetDij_fick(RealVec& dx, const su2double pressure, const su2double temperature, RealMatrix& Dij) override;
 
   private:
 
@@ -338,9 +319,9 @@ namespace Framework {
 
     /*!
       * Read coefficients to compute reaction rates from line
-      * \param[in] idx index of position in "line" separating reaction definition and coefficients
-      * \param[in] ChemCoefs Coefficients to compute reaction rates
-      * \param[in] Line line to be read
+      * \param[in] idx - index of position in "line" separating reaction definition and coefficients
+      * \param[in] ChemCoefs - Coefficients to compute reaction rates
+      * \param[in] line - line to be read
     */
     void ReadChemCoefs(const std::string& line);
 

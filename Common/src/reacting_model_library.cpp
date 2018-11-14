@@ -99,7 +99,7 @@ void ReactingModelLibrary::GetMolarFractions(const RealVec& ys, RealVec& xs) {
     massTot += mm;
     xs[iSpecies] = mm;
   }
-  std::for_each(xs.begin(),xs.end(),[massTot](double& elem){elem /= massTot;});
+  std::for_each(xs.begin(),xs.end(),[massTot](double elem){elem /= massTot;});
 }
 
 //
