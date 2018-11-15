@@ -3,14 +3,14 @@
 
 #include <set>
 #include <map>
-#include <vector>
+#include "datatype/vectorT.hpp"
 #include "su2_assert.hpp"
 
 namespace Utility {
 
   typedef std::map<std::string,unsigned short> MyMap;
   typedef std::set<std::string> MySet;
-  typedef std::vector<double> RealVec;
+  using RealVec = Common::RealVec;
 
   /*!
     * \brief Read a single chemical reaction

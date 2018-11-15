@@ -15,33 +15,34 @@ namespace Common {
   template<class Derived,typename T>
   struct MatExprT: public ExprT<Derived,T> {
     using Type = T;
+    typedef std::vector<std::vector<Type>>::size_type size_type;
 
     /*!
      * \brief Gets the number of rows
     */
-    inline std::size_t nbRows() const {
+    inline size_type nbRows() const {
       return this->operator const Derived&().nbRows();
     }
 
     /*!
      * \brief Gets the number of rows
     */
-    inline std::size_t nbCols() const {
+    inline size_type nbCols() const {
       return this->operator const Derived&().nbCols();
     }
 
     /*!
      * \brief Access to the individual entry (non const version)
     */
-    inline T& operator()(std::size_t i, size_t j) {
+    inline T& operator()(size_type i, size_type j) {
       return this->operator Derived&().at(i,j);
     }
 
     /*!
      * \brief Access to the individual entry (const version)
     */
-    //inline const T& operator()(std::size_t i, size_t j) const
-    inline T operator()(std::size_t i, size_t j) const {
+    //inline const T& operator()(size_type i, size_t j) const
+    inline T operator()(size_type i, size_type j) const {
       return this->operator const Derived&().at(i,j);
     }
 
@@ -49,15 +50,15 @@ namespace Common {
     /*!
      * \brief Access to the individual entry (non const version)
     */
-    inline T& at(std::size_t i, size_t j) {
+    inline T& at(size_type i, size_type j) {
       return this->operator Derived&().at(i,j);
     }
 
     /*!
      * \brief Access to the individual entry (const version)
     */
-    //inline const T& at(std::size_t i, size_t j) const
-    inline T at(std::size_t i, size_t j) const {
+    //inline const T& at(size_type i, size_t j) const
+    inline T at(size_type i, size_type j) const {
       return this->operator const Derived&().at(i,j);
     }
 
@@ -78,31 +79,32 @@ namespace Common {
   template <class Left, class Right>			\
   struct OpName: public MatExprT<OpName<Left,Right>, TYPE(Left)> { \
     static_assert(std::is_convertible<TYPE(Left),TYPE(Right)>::value,"The types of the two matrixes are not compatible"); \
+    typedef typename MET_TYPE(Left)::size_type size_type; \
                                                 \
     OpName(const MET_TYPE(Left)& l, const MET_TYPE(Right)& r): e1(l), e2(r) { \
       SU2_Assert(e1.nbRows() == e2.nbRows(),"The number of rows of the two matrixes is not the same"); \
       SU2_Assert(e1.nbCols() == e2.nbCols(),"The number of columns of the two matrixes is not the same"); \
     }	\
                                           \
-    inline TYPE(Left) operator()(std::size_t i, std::size_t j) const { \
+    inline TYPE(Left) operator()(size_type i, size_type j) const { \
       return e1(i,j) __op__ e2(i,j); \
     } \
                                       \
-    inline TYPE(Left) at(std::size_t i, std::size_t j) const { \
+    inline TYPE(Left) at(size_type i, size_type j) const { \
       SU2_Assert(i < nbRows(),"Index is beyond the number of rows"); \
       SU2_Assert(j < nbCols(),"Index is beyond the number of columns"); \
       return e1.at(i,j) __op__ e2.at(i,j); \
     } \
     									               \
-    std::size_t size() const { \
+    size_type size() const { \
       return e1.size(); \
     }	\
                                         \
-    std::size_t nbCols() const { \
+    size_type nbCols() const { \
       return e1.nbCols(); \
     } \
                                           \
-    std::size_t nbRows() const { \
+    size_type nbRows() const { \
       return e1.nbRows(); \
     }  \
 									                     \
@@ -131,26 +133,27 @@ namespace Common {
   template <class Left>			\
   struct OpName: public MatExprT<OpName<Left>, TYPE(Left)> { \
     static_assert(std::is_convertible<TYPE(Left),double>::value,"The types of the matrix is not compatible with double"); \
+    typedef typename MET_TYPE(Left)::size_type size_type; \
                                                  \
     OpName (const MET_TYPE(Left)& l, const double& r): e(l), c(r) { \
       SU2_Assert(strcmp(#__op__ ,"/") && std::abs(c)>0,"You can't divide by zero"); \
     }	\
                                         \
-    inline TYPE(Left) at(std::size_t i, std::size_t j) const { \
+    inline TYPE(Left) at(size_type i, size_type j) const { \
       SU2_Assert(i < nbRows(),"Index of row is beyond the number of rows"); \
       SU2_Assert(j < nbCols(),"Index of col is beyond the number of columns"); \
       return e.at(i,j) __op__ c; \
     } \
                                       \
-    std::size_t size() const { \
+    size_type size() const { \
       return e.size(); \
     }	\
                                          \
-    std::size_t nbCols() const { \
+    size_type nbCols() const { \
       return e.nbCols(); \
     } \
                                            \
-    std::size_t nbRows() const { \
+    size_type nbRows() const { \
        return e.nbRows(); \
     }  \
                                         \
@@ -187,24 +190,25 @@ namespace Common {
   template <class Right>			\
   struct OpName: public MatExprT<OpName<Right>, TYPE(Right)> { \
     static_assert(std::is_convertible<double,TYPE(Right)>::value,"The types of the matrix is not compatible with double"); \
+    typedef typename MET_TYPE(Right)::size_type size_type; \
                                                  \
     OpName (const double& l,const MET_TYPE(Right)& r): c(l), e(r) {}	\
                                         \
-    inline TYPE(Right) at(std::size_t i, std::size_t j) const { \
+    inline TYPE(Right) at(size_type i, size_type j) const { \
       SU2_Assert(i < nbRows(),"Index of row is beyond the number of rows"); \
       SU2_Assert(j < nbCols(),"Index of col is beyond the number of columns"); \
       return c __op__ e.at(i,j); \
     } \
                                       \
-    std::size_t size() const { \
+    size_type size() const { \
       return e.size(); \
     }	\
                                          \
-    std::size_t nbCols() const { \
+    size_type nbCols() const { \
       return e.nbCols(); \
     } \
                                            \
-    std::size_t nbRows() const { \
+    size_type nbRows() const { \
        return e.nbRows(); \
     }  \
                                         \
@@ -240,6 +244,7 @@ namespace Common {
   template <class Left,class Right>
   struct Mat_Mult :public MatExprT<Mat_Mult<Left,Right>, TYPE(Left)> {
     static_assert(std::is_convertible<TYPE(Left),TYPE(Right)>::value,"The types of the two matrixes are not compatible");
+    typedef typename MET_TYPE(Left)::size_type size_type;
 
     /*!
      * \brief Class constructor
@@ -251,10 +256,10 @@ namespace Common {
     /*!
      * \brief Accessor to individual entry
     */
-    TYPE(Left) operator()(std::size_t i, std::size_t j) const {
+    TYPE(Left) operator()(size_type i, size_type j) const {
       TYPE(Left) res = TYPE(Left)();
-      const std::size_t nbCols = e1.nbCols();
-      for (std::size_t k = 0; k < nbCols; ++k)
+      const size_type nbCols = e1.nbCols();
+      for (size_type k = 0; k < nbCols; ++k)
         res += e1(i,k) * e2(k,j);
       return res;
      }
@@ -262,12 +267,12 @@ namespace Common {
     /*!
      * \brief Accessor to individual entry
     */
-    TYPE(Left) at(std::size_t i, std::size_t j) const {
+    TYPE(Left) at(size_type i, size_type j) const {
       SU2_Assert(i < e1.nbRows(),"Index of row exceeds left matrix number of rows");
       SU2_Assert(j < e2.nbCols(),"Index of col exceeds right matrix number of columns");
       TYPE(Left) res = TYPE(Left)();
-      const std::size_t nbCols = e1.nbCols();
-      for (std::size_t k = 0; k < nbCols; ++k)
+      const size_type nbCols = e1.nbCols();
+      for (size_type k = 0; k < nbCols; ++k)
         res += e1.at(i,k) * e2.at(k,j);
       return res;
      }
@@ -275,21 +280,21 @@ namespace Common {
     /*!
      * \brief Size of the resulting matrix
     */
-    inline std::size_t size() const {
+    inline size_type size() const {
       return e1.nbRows()*e2.nbCols();
     }
 
     /*!
      * \brief Gets the number of columns of the resulting matrix
     */
-    inline std::size_t nbCols() const {
+    inline size_type nbCols() const {
       return e2.nbCols();
     }
 
     /*!
      * \brief Gets the number of rows of the resulting matrix
     */
-    inline std::size_t nbRows() const {
+    inline size_type nbRows() const {
       return e1.nbRows();
     }
 
@@ -309,6 +314,7 @@ namespace Common {
   template <class Mat, class Vec>
   struct MatVec_Mult :public MatExprT<MatVec_Mult<Mat,Vec>, TYPE(Vec)> {
     static_assert(std::is_convertible<TYPE(Mat),TYPE(Vec)>::value,"The types of matrix and vector are not compatible");
+    typedef typename VET_TYPE(Vec)::size_type size_type;
 
     /*!
      * \brief Class constructor
@@ -320,9 +326,9 @@ namespace Common {
     /*!
      * \brief Accessor to individual entry
     */
-    TYPE(Vec) operator[](std::size_t i) const {
+    TYPE(Vec) operator[](size_type i) const {
       auto res = TYPE(Vec)();
-      for (std::size_t k = 0; k < e2.size(); ++k) {
+      for (size_type k = 0; k < e2.size(); ++k) {
         res += e1(i,k) * e2[k];
       }
       return res;
@@ -331,10 +337,10 @@ namespace Common {
     /*!
      * \brief Accessor to individual entry
     */
-    TYPE(Vec) at(std::size_t i) const {
+    TYPE(Vec) at(size_type i) const {
       SU2_Assert(i < size(),"The index exceed the dimension of the vector");
       auto res = TYPE(Vec)();
-      for (std::size_t k = 0; k < e2.size(); ++k) {
+      for (size_type k = 0; k < e2.size(); ++k) {
         res += e1.at(i,k) * e2.at(k);
       }
       return res;
@@ -343,7 +349,7 @@ namespace Common {
     /*!
      * \brief Size of the resulting vector
     */
-    inline std::size_t size() const {
+    inline size_type size() const {
       return e1.nbRows();
     }
 

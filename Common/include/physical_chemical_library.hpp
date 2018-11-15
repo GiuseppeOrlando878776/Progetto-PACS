@@ -119,19 +119,14 @@ namespace Framework  {
        */
        virtual void SetMassFractions(const RealVec& ys) = 0;
 
-      /*!
-        * \brief Sets the mole fractions of elements Xn starting from the given species mass fractions Yn
-        * \param[in] ys - The vector of the mass fractions of species
-       */
-      // virtual void SetMolarFromMass(const RealVec& ys) = 0;
-
        /*!
         * \brief Computes the specific heat ratio and the speed of sound.
         * \param[in] temp - temperature
+        * \param[in] ys - The vector of the mass fractions of species
         * \param[out] gamma - specific heat ratio
         * \param[out] sound_speed - speed of sound
         */
-      virtual void Gamma_FrozenSoundSpeed(const su2double temp, su2double& gamma, su2double& sound_speed) = 0;
+      virtual void Gamma_FrozenSoundSpeed(const su2double temp, const RealVec& ys, su2double& gamma, su2double& sound_speed) = 0;
 
        /*!
         * \brief Computes the density, the enthalpy and the internal energy
@@ -141,6 +136,14 @@ namespace Framework  {
         * \param[out] dhe - Vector with density, enthalpy, energy (output) for thermal equilibrium
         */
       virtual void Density_Enthalpy_Energy(const su2double temp, const su2double pressure, const RealVec& ys, RealVec& dhe) = 0;
+
+      /*!
+       * \brief Computes the density given temperature and pressure.
+       * \param[in] temp - temperature
+       * \param[in] rho - density
+       * \param[in] ys - mass fractions
+       */
+      virtual su2double ComputePressure(const su2double temp, const su2double rho, const RealVec& ys) = 0;
 
        /*!
         * \brief Computes the density given temperature and pressure.
@@ -179,6 +182,14 @@ namespace Framework  {
         * \return Cp - specific heat at constant pressure
         */
       virtual su2double ComputeCP(const su2double temp, const RealVec& ys) = 0;
+
+      /*!
+       * \brief Computes the specific heat at constant volume
+       * \param[in] temp - temperature
+       * \param[in] ys - mass fractions
+       * \return Cv - specific heat at constant volume
+       */
+     virtual su2double ComputeCV(const su2double temp, const RealVec& ys) = 0;
 
       /*!
         * \brief Computes the thermal conductivity given temperature
@@ -225,9 +236,10 @@ namespace Framework  {
        * densities for nonequilibrium computations
        * \param[in] temp - the mixture temperature
        * \param[in] rho - the mixture density
+       * \param[in] ys - the species mass fractions
        * \return rhoUdiff  - Diffusion coefficient with constant Lewis number for each species
        */
-     virtual RealVec GetRhoUdiff(const su2double temp, const su2double rho) = 0;
+     virtual RealVec GetRhoUdiff(const su2double temp, const su2double rho, const RealVec& ys) = 0;
 
      /*!
       * Returns the diffusion velocities of species multiplied by the species

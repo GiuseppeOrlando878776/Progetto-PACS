@@ -29,7 +29,7 @@ namespace Common {
 
     using Type = T;
     using value_type = T;
-    typedef typename std::vector<std::vector<T>>::size_type size_type;
+    typedef typename MatExprT<SU2Mat<T>,T>::size_type size_type;
 
     /*!
       * \brief Default constructor
@@ -42,7 +42,7 @@ namespace Common {
       * \param[in] _n_cols - number of columns in the matrix
       * \param[in] init - value to initialize (default provided)
     */
-    SU2Mat(std::size_t _n_rows,std::size_t _n_cols,Type init = Type());
+    explicit SU2Mat(size_type _n_rows,size_type _n_cols,Type init = Type());
 
     /*!
       * \brief Class destructor
@@ -61,7 +61,7 @@ namespace Common {
       * \brief Move constructor
       * \param[in] SU2Mat - SU2Mat to move
     */
-    SU2Mat(SU2Mat&& SU2Mat);
+    SU2Mat(SU2Mat&& SU2Mat) noexcept;
 
     /*!
       * \brief Copy assignment operator
@@ -73,7 +73,7 @@ namespace Common {
       * \brief Move assignment operator
       * \param[in] SU2Mat - SU2Mat to move
     */
-    SU2Mat& operator=(SU2Mat&& SU2Mat);
+    SU2Mat& operator=(SU2Mat&& SU2Mat) noexcept;
 
     /*!
       * \brief Copy Constructor from already allocated memory
@@ -81,10 +81,10 @@ namespace Common {
       * \param[in] _n_rows - number of rows of the resulting matrix
       * \param[in] _n_cols - number of columns of the resulting matrix
     */
-    SU2Mat(Type** data,std::size_t _n_rows,std::size_t _n_cols):n_rows(_n_cols),n_cols(_n_cols) {
+    explicit SU2Mat(Type** data,size_type _n_rows,size_type _n_cols):n_rows(_n_cols),n_cols(_n_cols) {
       allocate();
-      for (std::size_t i = 0; i < _n_rows; ++i)
-        for (std::size_t j = 0; j < _n_cols; ++j)
+      for (size_type i = 0; i < _n_rows; ++i)
+        for (size_type j = 0; j < _n_cols; ++j)
           (*this)(i,j) = data[i][j];
     }
 
@@ -103,8 +103,8 @@ namespace Common {
     SU2Mat(const MatExprT<Derived,Type>& e):n_rows(e.nbRows()),n_cols(e.nbCols()) {
       //const Derived& et(e);
       allocate();
-      for(std::size_t i = 0; i < n_rows; ++i) {
-        for(std::size_t j = 0; j < n_cols; ++j)
+      for(size_type i = 0; i < n_rows; ++i) {
+        for(size_type j = 0; j < n_cols; ++j)
           (*this)(i,j) = e(i,j);
       }
     }
@@ -121,8 +121,8 @@ namespace Common {
       if(m_data!=NULL)
         delete[] m_data;
       allocate();
-      for(std::size_t i = 0; i < n_rows; ++i) {
-        for(std::size_t j = 0; j < n_cols; ++j)
+      for(size_type i = 0; i < n_rows; ++i) {
+        for(size_type j = 0; j < n_cols; ++j)
           (*this)(i,j) = e(i,j);
       }
       return *this;
@@ -135,7 +135,7 @@ namespace Common {
     #define SU2MAT_ASSIGN_OP_CONST(__op__) \
     SU2Mat& operator __op__ (Type value) { \
       SU2_Assert(strcmp(#__op__ ,"/=") && std::abs(value)>0,"You can't divide by zero"); \
-      for(std::size_t i = 0; i < size(); ++i) \
+      for(size_type i = 0; i < size(); ++i) \
         m_data[i] __op__ value; \
       return *this; \
     }
@@ -154,8 +154,8 @@ namespace Common {
     SU2Mat& operator __op__ (const MatExprT<Derived,Type>& e) { \
       SU2_Assert(this->nbRows() == e.nbRows() && this->nbCols() == e.nbCols(), \
                 "The dimension of the matrixes is not compatible and so you can't operate with them"); \
-      for(std::size_t i = 0; i < nbRows(); ++i) { \
-        for(std::size_t j = 0; j < nbCols(); ++j) \
+      for(size_type i = 0; i < nbRows(); ++i) { \
+        for(size_type j = 0; j < nbCols(); ++j) \
           (*this)(i,j) __op__ e(i,j); \
       } \
       return *this; \
@@ -177,9 +177,9 @@ namespace Common {
       std::vector<Type> tmp(m_data, m_data + size());
       n_cols = e.nbCols();
       this->resize(n_rows,n_cols);
-      for (std::size_t i = 0; i < n_rows; ++i) {
-        for (std::size_t j = 0; j < n_cols; ++j) {
-          for (std::size_t k = 0; k < e.nbRows(); ++k)
+      for (size_type i = 0; i < n_rows; ++i) {
+        for (size_type j = 0; j < n_cols; ++j) {
+          for (size_type k = 0; k < e.nbRows(); ++k)
               (*this)(i,j) += tmp[sub2ind(i,k)] * e(k,j);
         }
       }
@@ -191,7 +191,7 @@ namespace Common {
      * \param[in] i - index of row
      * \param[in] j - index of columns
     */
-    inline Type& operator()(std::size_t i,std::size_t j) {
+    inline Type& operator()(size_type i,size_type j) {
       return m_data[sub2ind(i,j)];
     }
 
@@ -200,8 +200,8 @@ namespace Common {
      * \param[in] i - index of row
      * \param[in] j - index of columns
     */
-    //inline Type operator()(std::size_t i,std::size_t j) const
-    inline const Type& operator()(std::size_t i,std::size_t j) const {
+    //inline Type operator()(size_type i,size_type j) const
+    inline const Type& operator()(size_type i,size_type j) const {
       return m_data[sub2ind(i,j)];
     }
 
@@ -210,7 +210,7 @@ namespace Common {
      * \param[in] i - index of row
      * \param[in] j - index of columns
     */
-    inline Type& at(std::size_t i,std::size_t j) {
+    inline Type& at(size_type i,size_type j) {
       SU2_Assert(i < n_rows,"Index of row is beyond the number of rows in the matrix");
       SU2_Assert(j < n_cols,"Index of col is beyond the number of columns in the matrix");
       return m_data[sub2ind(i,j)];
@@ -221,8 +221,8 @@ namespace Common {
      * \param[in] i - index of row
      * \param[in] j - index of columns
     */
-    //inline Type at(std::size_t i,std::size_t j) const
-    inline const Type& at(std::size_t i,std::size_t j) const {
+    //inline Type at(size_type i,size_type j) const
+    inline const Type& at(size_type i,size_type j) const {
       SU2_Assert(i < n_rows,"Index of row is beyond the number of rows in the matrix");
       SU2_Assert(j < n_cols,"Index of col is beyond the number of columns in the matrix");
       return m_data[sub2ind(i,j)];
@@ -231,21 +231,21 @@ namespace Common {
     /*!
      * \brief Returns the number of rows in the matrix
     */
-    inline std::size_t nbRows(void) const {
+    inline size_type nbRows(void) const {
       return n_rows;
     }
 
     /*!
      * \brief Returns the number of rows in the matrix
     */
-    inline std::size_t nbCols(void) const {
+    inline size_type nbCols(void) const {
       return n_cols;
     }
 
     /*!
      * \brief Returns the size of the matrix
     */
-    inline std::size_t size(void) const {
+    inline size_type size(void) const {
       return n_rows*n_cols;
     }
 
@@ -255,7 +255,7 @@ namespace Common {
      * \param[in] _n_cols - new number of columns in the matrix
      * \param[in] init - value to initialize (default provided)
     */
-    void resize(std::size_t _n_rows, std::size_t _n_cols,Type init = Type());
+    void resize(size_type _n_rows, size_type _n_cols,Type init = Type());
 
     /*!
      * \brief Returns the underlined pointer
@@ -297,10 +297,10 @@ namespace Common {
      * \param[out] vec - the resulting vector
     */
     template <class Vec>
-    void GetRow(std::size_t idx_row, Vec& vec) const {
+    void GetRow(size_type idx_row, Vec& vec) const {
       SU2_Assert(idx_row < n_rows, "The index of the desired row exceeds the number of rows in the matrix");
       vec.resize(n_cols);
-      for(std::size_t i = 0; i < n_cols; ++i)
+      for(size_type i = 0; i < n_cols; ++i)
         vec[i] = m_data[sub2ind(idx_row,i)];
     }
 
@@ -310,10 +310,10 @@ namespace Common {
      * \param[out] vec - the resulting vector
     */
     template <class Vec>
-    void GetColumn(std::size_t idx_col, Vec& vec) const  {
+    void GetColumn(size_type idx_col, Vec& vec) const  {
       SU2_Assert(idx_col < n_cols, "The index of the desired column exceeds the number of columns in the matrix");
       vec.resize(n_rows);
-      for(std::size_t i = 0; i < n_cols; ++i)
+      for(size_type i = 0; i < n_cols; ++i)
         vec[i] = m_data[sub2ind(i,idx_col)];
     }
 
@@ -323,10 +323,10 @@ namespace Common {
      * \param[in] row - the vector where data comes from
     */
     template <class Vec>
-    void SetRow(std::size_t idx_row, const Vec& row)  {
+    void SetRow(size_type idx_row, const Vec& row)  {
       SU2_Assert(idx_row < n_rows,"The index of row to set exceeds the number of rows in the matrix");
       SU2_Assert(row.size() == n_cols,"The vector of data to set the row is different from the number of columns in the matrix");
-      for(std::size_t i = 0; i < n_cols; ++i) {
+      for(size_type i = 0; i < n_cols; ++i) {
         m_data[sub2ind(idx_row,i)] = row[i];
       }
     }
@@ -337,10 +337,10 @@ namespace Common {
      * \param[in] col - the vector where data comes from
     */
     template <class Vec>
-    void SetColumn(std::size_t idx_col, const Vec& col)  {
+    void SetColumn(size_type idx_col, const Vec& col)  {
       SU2_Assert(idx_col < n_cols,"The index of col to set exceeds the number of columns in the matrix");
       SU2_Assert(col.size() == n_rows,"The vector of data to set the column is different from the number of rows in the matrix");
-      for (std::size_t i = 0; i < n_rows; ++i) {
+      for (size_type i = 0; i < n_rows; ++i) {
         m_data[sub2ind(i,idx_col)] = col[i];
       }
     }
@@ -350,8 +350,8 @@ namespace Common {
     */
     operator std::vector<std::vector<Type>> () const {
       auto result = std::vector<Type>(n_rows,std::vector<Type>(n_cols));
-      for(std::size_t i = 0; i < n_rows; ++i) {
-        for(std::size_t j = 0; j < n_cols; ++j)
+      for(size_type i = 0; i < n_rows; ++i) {
+        for(size_type j = 0; j < n_cols; ++j)
           result[i][j] = m_data[sub2ind(i,j)];
       }
       return result;
@@ -381,14 +381,14 @@ namespace Common {
     /*!
      * \brief Begin iterator (const version)
     */
-    inline auto cbegin()->decltype(std::declval<std::vector<Type>>().cbegin()) const {
+    inline decltype(std::declval<std::vector<Type>>().cbegin()) cbegin() const {
       return static_cast<decltype(std::declval<std::vector<Type>>().cbegin())>(m_data);
     }
 
     /*!
      * \brief End iterator (const version)
     */
-    inline auto cend()->decltype(std::declval<std::vector<Type>>().cend()) const {
+    inline decltype(std::declval<std::vector<Type>>().cend()) cend() const {
       return static_cast<decltype(std::declval<std::vector<Type>>().cend())>(m_data + n_rows*n_cols);
     }
 
@@ -399,8 +399,8 @@ namespace Common {
 
   private:
 
-    std::size_t n_rows;  /*!< \brief Number of rows of the matrix. */
-    std::size_t n_cols;  /*!< \brief Number of columns of the matrix. */
+    size_type n_rows;  /*!< \brief Number of rows of the matrix. */
+    size_type n_cols;  /*!< \brief Number of columns of the matrix. */
     Type* m_data;  /*!< \brief Stored elements. */
 
     /*!
@@ -422,7 +422,7 @@ namespace Common {
     /*!
      * \brief sub2ind
     */
-    inline std::size_t sub2ind(std::size_t i, std::size_t j) const {
+    inline size_type sub2ind(size_type i, size_type j) const {
       return i*n_cols + j;
     }
 
@@ -432,7 +432,7 @@ namespace Common {
   //
   /*--- SU2Mat value constructor---*/
   template<typename T>
-  SU2Mat<T>::SU2Mat(std::size_t _n_rows,std::size_t _n_cols,T init):n_rows(_n_rows),n_cols(_n_cols) {
+  SU2Mat<T>::SU2Mat(size_type _n_rows,size_type _n_cols,T init):n_rows(_n_rows),n_cols(_n_cols) {
     allocate();
     initialize(init);
   }
@@ -443,7 +443,7 @@ namespace Common {
   template<typename T>
   SU2Mat<T>::SU2Mat(const SU2Mat& su2mat):n_rows(su2mat.n_rows),n_cols(su2mat.n_cols) {
     allocate();
-    for(std::size_t i = 0; i<size(); ++i)
+    for(size_type i = 0; i<size(); ++i)
       m_data[i] = su2mat.m_data[i];
   }
 
@@ -451,7 +451,7 @@ namespace Common {
   //
   /*--- SU2Mat move constructor---*/
   template<typename T>
-  SU2Mat<T>::SU2Mat(SU2Mat&& su2mat):n_rows(su2mat.n_rows),n_cols(su2mat.n_cols) {
+  SU2Mat<T>::SU2Mat(SU2Mat&& su2mat) noexcept:n_rows(su2mat.n_rows),n_cols(su2mat.n_cols) {
     m_data = su2mat.m_data;
     su2mat.m_data = NULL;
     su2mat.n_rows = 0;
@@ -469,7 +469,7 @@ namespace Common {
           if(m_data!=NULL)
             delete[] m_data;
           m_data = new T(size());
-          for(std::size_t i = 0; i<size(); ++i)
+          for(size_type i = 0; i<size(); ++i)
             m_data[i] = su2mat.m_data[i];
       }
       return *this;
@@ -479,7 +479,7 @@ namespace Common {
   //
   /*--- SU2Mat move assignment operator ---*/
   template<typename T>
-  SU2Mat<T>& SU2Mat<T>::operator=(SU2Mat&& su2mat) {
+  SU2Mat<T>& SU2Mat<T>::operator=(SU2Mat&& su2mat) noexcept {
       if(this!= &su2mat) {
           n_rows = std::move(su2mat.n_rows);
           n_cols = std::move(su2mat.n_cols);
@@ -502,8 +502,8 @@ namespace Common {
                "The number of columns is not homogeneous");
     n_cols = mat.front().size();
     allocate();
-    for(std::size_t i = 0; i < n_rows; ++i) {
-      for(std::size_t j = 0; j < n_cols; ++j)
+    for(size_type i = 0; i < n_rows; ++i) {
+      for(size_type j = 0; j < n_cols; ++j)
         m_data[sub2ind(i,j)] = mat[i][j];
     }
   }
@@ -522,7 +522,7 @@ namespace Common {
   /*--- Initialize matrix with a value ---*/
   template<typename T>
   void SU2Mat<T>::initialize(T value) {
-    for(std::size_t i = 0; i < size(); ++i)
+    for(size_type i = 0; i < size(); ++i)
       m_data[i] = value;
   }
 
@@ -543,12 +543,31 @@ namespace Common {
   //
   /*--- Resize container ---*/
   template<typename T>
-  void SU2Mat<T>::resize(std::size_t _n_rows,std::size_t _n_cols,T init) {
-    free_mem();
+  void SU2Mat<T>::resize(size_type _n_rows,size_type _n_cols,T init) {
+    if(nbRows() == _n_rows && nbCols() == _n_cols)
+      return;
+
+    size_type new_size = _n_rows * _n_cols;
+    auto new_data = new T[new_size];
+
+    if(_n_rows > nbRows() || _n_cols > nbCols())
+      std::fill(new_data, new_data + new_size, init) ;
+
+    size_type rowsToCopy = _n_rows < nbRows() ? _n_rows : nbRows() ;
+    size_type colsToCopy = _n_cols < nbCols() ? _n_cols : nbCols() ;
+
+    for(size_type r=0; r < rowsToCopy; ++r) {
+      auto srcBegin = m_data + (r*nbCols()) ;
+      auto srcEnd = srcBegin + colsToCopy ;
+      auto dstBegin = new_data + (r*_n_cols);
+      std::copy(srcBegin, srcEnd, dstBegin) ;
+    }
+
+    delete[] m_data;
+    m_data = new_data;
     n_rows = _n_rows;
     n_cols = _n_cols;
-    allocate();
-    initialize(init);
+
   }
 
   //
@@ -579,8 +598,8 @@ namespace Common {
   template<typename T>
   void SU2Mat<T>::transpose(SU2Mat& result) const {
     result.resize(this->nbCols(),this->nbRows());
-    for(std::size_t i = 0; i < n_cols; ++i) {
-      for(std::size_t j = 0; j < n_rows; ++j)
+    for(size_type i = 0; i < n_cols; ++i) {
+      for(size_type j = 0; j < n_rows; ++j)
         result(i,j) = m_data[this->sub2ind(j,i)];
     }
   }
@@ -593,8 +612,8 @@ namespace Common {
     if(nbRows() != nbCols())
       return false;
     else {
-      for(std::size_t i = 0; i < n_rows; ++i) {
-        for(std::size_t j = 0; j < n_cols; ++j) {
+      for(size_type i = 0; i < n_rows; ++i) {
+        for(size_type j = 0; j < n_cols; ++j) {
           if((*this)(i,j) != T() && i!=j)
             return false;
         }
@@ -611,7 +630,7 @@ namespace Common {
     SU2_Assert(check_diag(),"You can invert only diagonal matrixes");
     result.resize(n_rows,n_rows);
     T temp = T();
-    for(std::size_t i = 0; i < n_rows; ++i) {
+    for(size_type i = 0; i < n_rows; ++i) {
       temp = (*this)(i,i);
       SU2_Assert(std::abs(temp) > 0.0,std::string("The diagional entry " + std::to_string(i) + " is equal to 0"));
       result(i,i) = 1.0/temp;

@@ -2,7 +2,6 @@
 #define SU2_VECTORT_HPP
 
 #include "exprT.hpp"
-#include <vector>
 #include <iomanip>
 #include <algorithm>
 
@@ -19,7 +18,7 @@ namespace Common {
   template<typename T> std::ostream& operator<<(std::ostream& out,const SU2Vec<T>& v);
 
   /*!
-   * Definition of a class Su2Vec that implements an expression template technique
+   * Definition of a class SU2Vec that implements an expression template technique
    * \author G.Orlando
   */
 
@@ -29,7 +28,7 @@ namespace Common {
 
     using Type = T;
     using value_type = T;
-    typedef typename std::vector<T>::size_type size_type;
+    typedef typename ExprT<SU2Vec<T>,T>::size_type size_type;
 
     /*!
       * \brief Default constructor
@@ -41,7 +40,7 @@ namespace Common {
       * \param[in] _N - size of the vector
       * \param[in] init - value to initialize (default provided)
     */
-    SU2Vec(std::size_t _N,Type init = Type());
+    explicit SU2Vec(size_type _N,Type init = Type());
 
     /*!
       * \brief Class destructor
@@ -58,9 +57,9 @@ namespace Common {
 
     /*!
       * \brief Move constructor
-      * \param[in] su2vec - SU2Vec to copy from
+      * \param[in] su2vec - SU2Vec to move from
     */
-    SU2Vec(SU2Vec&& su2vec);
+    SU2Vec(SU2Vec&& su2vec) noexcept;
 
     /*!
       * \brief Copy assignment operator
@@ -70,44 +69,21 @@ namespace Common {
 
     /*!
       * \brief Move assignment operator
-      * \param[in] su2vec - SU2Vec to copy from
+      * \param[in] su2vec - SU2Vec to move from
     */
-    SU2Vec& operator=(SU2Vec&& su2vec);
+    SU2Vec& operator=(SU2Vec&& su2vec) noexcept;
 
     /*!
       * \brief Copy Constructor with range
-      * \param[in] init - pointer to first datum
-      * \param[in] end - pointer to one past last datum
+      * \param[in] init - iterator to first datum
+      * \param[in] end - iterator to one past last datum
     */
-    explicit SU2Vec(Type* init,Type* end) {
-      N = end - init;
-      allocate();
-      for (std::size_t i = 0; i < size(); ++i)
-        m_data[i] = *init++;
-    }
-
-    /*!
-      * \brief Copy Constructor with range (non const version)
-      * \param[in] init - begin iterator
-      * \param[in] end - end iterator
-    */
-    explicit SU2Vec(decltype(std::declval<std::vector<Type>>().begin()) init,decltype(std::declval<std::vector<Type>>().end()) end) {
-      N = end - init;
-      allocate();
-      for (std::size_t i = 0; i < size(); ++i)
-        m_data[i] = *init++;
-    }
-
-    /*!
-      * \brief Copy Constructor with range (const version)
-      * \param[in] init - begin iterator
-      * \param[in] end - end iterator
-    */
-    explicit SU2Vec(decltype(std::declval<std::vector<Type>>().cbegin()) init,decltype(std::declval<std::vector<Type>>().cend()) end) {
-      N = end - init;
-      allocate();
-      for (std::size_t i = 0; i < size(); ++i)
-        m_data[i] = *init++;
+    template<typename Iterator>
+    SU2Vec(Iterator b,Iterator e) {
+      N = std::distance(b,e);
+      m_data = new Type[N];
+      for(size_type i = 0; i<N; ++i)
+        m_data[i] = *b++;
     }
 
     /*!
@@ -124,7 +100,7 @@ namespace Common {
     SU2Vec(const ExprT<Derived,Type>& e):N(e.size()) {
       //const Derived& et(e);
       allocate();
-      for(std::size_t i = 0; i < N; ++i)
+      for(size_type i = 0; i < N; ++i)
         m_data[i] = e[i];
     }
 
@@ -140,7 +116,7 @@ namespace Common {
       if(m_data!=NULL)
         delete[] m_data;
       allocate();
-      for(std::size_t i = 0; i < N; ++i)
+      for(size_type i = 0; i < N; ++i)
         m_data[i] = e[i];
       return *this;
     }
@@ -152,7 +128,7 @@ namespace Common {
     #define SU2VEC_ASSIGN_OP_CONST(__op__) \
     SU2Vec& operator __op__ (Type value) { \
       SU2_Assert(strcmp(#__op__ ,"/=") && std::abs(value)>0,"You can't divide by zero"); \
-      for(std::size_t i = 0; i < size(); ++i) \
+      for(size_type i = 0; i < size(); ++i) \
         m_data[i] __op__ value; \
       return *this; \
     }
@@ -169,7 +145,7 @@ namespace Common {
     template<class Derived> \
     SU2Vec& operator __op__ (const ExprT<Derived,Type>& e) { \
       SU2_Assert(this->size() == e.size(),"The size of the vectors is not the same and so you can't operate with them"); \
-      for(std::size_t i = 0; i < size(); ++i) \
+      for(size_type i = 0; i < size(); ++i) \
         m_data[i] __op__ e[i]; \
       return *this; \
     }
@@ -188,7 +164,7 @@ namespace Common {
       SU2_Assert(this->size() == e.size(),"The size of the vectors is not the same and so you can't operate with them");
       SU2Vec tmp(e);
       SU2_Assert(tmp.check_notzero(),"The vector on rhs contains zeros and so you can't divide by it");
-      for(std::size_t i = 0; i < size(); ++i) \
+      for(size_type i = 0; i < size(); ++i) \
         m_data[i] /= tmp[i]; \
       return *this;
     }
@@ -198,7 +174,7 @@ namespace Common {
      * \brief Returns i-th element (non const version)
      * \param[in] i - index of the element
     */
-    inline Type& operator[](std::size_t i) {
+    inline Type& operator[](size_type i) {
       return m_data[i];
     }
 
@@ -206,8 +182,8 @@ namespace Common {
      * \brief Returns i-th element (const version)
      * \param[in] i - index of the element
     */
-    //inline Type operator[](std::size_t i) const
-    inline const Type& operator[](std::size_t i) const {
+    //inline Type operator[](size_type i) const
+    inline const Type& operator[](size_type i) const {
       return m_data[i];
     }
 
@@ -215,7 +191,7 @@ namespace Common {
      * \brief Returns i-th element (non const version)
      * \param[in] i - index of the element
     */
-    inline Type& at(std::size_t i) {
+    inline Type& at(size_type i) {
       SU2_Assert(i < size(),"Index is beyond the size of the vector");
       return m_data[i];
     }
@@ -224,8 +200,8 @@ namespace Common {
      * \brief Returns i-th element (const version)
      * \param[in] i - index of the element
     */
-    //inline Type at(std::size_t i) const
-    inline const Type& at(std::size_t i) const {
+    //inline Type at(size_type i) const
+    inline const Type& at(size_type i) const {
       SU2_Assert(i < size(),"Index is beyond the size of the vector");
       return m_data[i];
     }
@@ -233,7 +209,7 @@ namespace Common {
     /*!
      * \brief Returns the size of the vector
     */
-    inline std::size_t size(void) const {
+    inline size_type size(void) const {
       return N;
     }
 
@@ -249,7 +225,7 @@ namespace Common {
      * \param[in] _N - new size of the vector
      * \param[in] init - value to initialize (default provided)
     */
-    void resize(std::size_t _N, Type init = Type());
+    void resize(size_type _N, Type init = Type());
 
     /*!
      * \brief Add an element at the end of the vector
@@ -295,14 +271,14 @@ namespace Common {
     /*!
      * \brief Begin iterator (const version)
     */
-    inline auto cbegin()->decltype(std::declval<std::vector<Type>>().cbegin()) const {
+    inline decltype(std::declval<std::vector<Type>>().cbegin()) cbegin() const {
       return static_cast<decltype(std::declval<std::vector<Type>>().cbegin())>(m_data);
     }
 
     /*!
      * \brief End iterator (const version)
     */
-    inline auto cend()->decltype(std::declval<std::vector<Type>>().cend()) const {
+    inline decltype(std::declval<std::vector<Type>>().cend()) cend() const {
       return static_cast<decltype(std::declval<std::vector<Type>>().cend())>(m_data + N);
     }
 
@@ -313,7 +289,7 @@ namespace Common {
 
   private:
 
-    std::size_t N;  /*!< \brief Size of the vector. */
+    size_type N;  /*!< \brief Size of the vector. */
     Type* m_data;  /*!< \brief Stored elements. */
 
     /*!
@@ -348,7 +324,7 @@ namespace Common {
   /*--- Initialize vector ---*/
   template<typename T>
   void SU2Vec<T>::initialize(T value) {
-    for(std::size_t i = 0; i < size(); ++i)
+    for(size_type i = 0; i < size(); ++i)
       m_data[i] = value;
   }
 
@@ -368,7 +344,7 @@ namespace Common {
   //
   /*--- SU2Vec value constructor---*/
   template<typename T>
-  SU2Vec<T>::SU2Vec(std::size_t _N,T init):N(_N) {
+  SU2Vec<T>::SU2Vec(size_type _N,T init):N(_N) {
     allocate();
     initialize(init);
   }
@@ -379,7 +355,7 @@ namespace Common {
   template<typename T>
   SU2Vec<T>::SU2Vec(const SU2Vec& su2vec):N(su2vec.N) {
     allocate();
-    for(std::size_t i = 0; i < N; ++i)
+    for(size_type i = 0; i < N; ++i)
       m_data[i] = su2vec.m_data[i];
   }
 
@@ -387,7 +363,7 @@ namespace Common {
   //
   /*--- SU2Vec move constructor---*/
   template<typename T>
-  SU2Vec<T>::SU2Vec(SU2Vec&& su2vec):N(su2vec.N) {
+  SU2Vec<T>::SU2Vec(SU2Vec&& su2vec) noexcept:N(su2vec.N) {
     m_data = su2vec.m_data;
     su2vec.m_data = NULL;
     su2vec.N = 0;
@@ -403,7 +379,7 @@ namespace Common {
           if(m_data!= NULL)
             delete[] m_data;
           m_data = new T[N];
-          for(std::size_t i = 0; i < N; ++i)
+          for(size_type i = 0; i < N; ++i)
             m_data[i] = su2vec.m_data[i];
       }
       return *this;
@@ -414,7 +390,7 @@ namespace Common {
   /*--- SU2Vec move assignment operator ---*/
 
   template<typename T>
-  SU2Vec<T>& SU2Vec<T>::operator=(SU2Vec&& su2vec) {
+  SU2Vec<T>& SU2Vec<T>::operator=(SU2Vec&& su2vec) noexcept {
       if(this!= &su2vec) {
         N = std::move(su2vec.N);
         if(m_data!= NULL)
@@ -433,7 +409,7 @@ namespace Common {
   template<typename T>
   SU2Vec<T>::SU2Vec(const std::vector<T>& v):N(v.size()) {
     allocate();
-    for(std::size_t i = 0; i<size(); ++i)
+    for(size_type i = 0; i<size(); ++i)
       m_data[i] = v[i];
   }
 
@@ -441,11 +417,27 @@ namespace Common {
   //
   /*--- Resize container ---*/
   template<typename T>
-  void SU2Vec<T>::resize(std::size_t _N,T init) {
-    free_mem();
-    N = _N;
-    allocate();
-    initialize(init);
+  void SU2Vec<T>::resize(size_type _N,T init) {
+    if(_N == size())
+      return;
+    if(_N < size()) {
+      N = _N;
+      auto tmp = new T[size()];
+      for(size_type i = 0; i < size(); ++i)
+        tmp[i] = m_data[i];
+      delete[] m_data;
+      m_data = tmp;
+    }
+    else {
+      auto tmp = new T[_N];
+      size_type i;
+      std::fill(tmp + size(),tmp + _N,init);
+      for(i = 0; i < size(); ++i)
+        tmp[i] = m_data[i];
+      N = _N;
+      delete[] m_data;
+      m_data = tmp;
+    }
   }
 
   //
@@ -454,7 +446,7 @@ namespace Common {
   template<typename T>
   void SU2Vec<T>::push_back(const T& value) {
     T* tmp = new T[++N];
-    std::size_t i;
+    size_type i;
     for(i = 0; i < size() - 1; ++i)
       tmp[i] = m_data[i];
     tmp[i] = value;
@@ -500,7 +492,6 @@ namespace Common {
         result[i] = l/result[i];
     return result;
   }
-
 
   using RealVec = SU2Vec<double>;
 

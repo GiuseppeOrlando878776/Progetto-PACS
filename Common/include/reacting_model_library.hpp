@@ -19,8 +19,6 @@ namespace Framework {
 
   public:
 
-    typedef Framework::PhysicalChemicalLibrary::RealVec RealVec;
-    typedef Framework::PhysicalChemicalLibrary::RealMatrix RealMatrix;
     typedef std::tuple<std::shared_ptr<RealVec>,RealVec,RealVec> MyTuple;
 
   public: // functions
@@ -120,18 +118,13 @@ namespace Framework {
     void SetMassFractions(const RealVec& ys) override;
 
     /*!
-     * \brief Sets the mole fractions of elements Xn starting from the given species mass fractions Yn
-     * \param[in] ys - The vector of the mass fractions of species
-    */
-    //void SetMolarFromMass(const RealVec& ys) override;
-
-    /*!
-     * \brief Computes the specific heat ratio and the speed of sound.
+     * \brief Computes the frozen specific heat ratio and the frozen speed of sound.
      * \param[in] temp - temperature
-     * \return gamma - specific heat ratio (output)
-     * \return sound_speed - speed of sound (output)
+     * \param[in] ys - The vector of the mass fractions of species
+     * \param[out] gamma - specific heat ratio (output)
+     * \param[out] sound_speed - speed of sound (output)
     */
-    void Gamma_FrozenSoundSpeed(const su2double temp, su2double& gamma, su2double& sound_speed) override;
+    void Gamma_FrozenSoundSpeed(const su2double temp, const RealVec& ys,su2double& gamma, su2double& sound_speed) override;
 
     /*!
      * \brief Computes the density, the enthalpy and the internal energy
@@ -145,10 +138,18 @@ namespace Framework {
     /*!
      * \brief Computes the density at given temperature and pressure.
      * \param[in] temp - temperature
+     * \param[in] rho - density
+     * \param[in] ys - mass fractions
+    */
+    su2double ComputePressure(const su2double temp, const su2double rho, const RealVec& ys) override;
+
+    /*!
+     * \brief Computes the density at given temperature and pressure.
+     * \param[in] temp - temperature
      * \param[in] pressure - pressure
      * \param[in] ys - mass fractions
     */
-    su2double ComputeDensity(const su2double temp, const su2double pressure, const RealVec& ys);
+    su2double ComputeDensity(const su2double temp, const su2double pressure, const RealVec& ys) override;
 
     /*!
      * \brief Computes the internal energy per unit of mass at given temperature and pressure.
@@ -156,7 +157,7 @@ namespace Framework {
      * \param[in] pressure - pressure
      * \param[in] ys - mass fractions
      */
-    su2double ComputeEnergy(const su2double temp, const su2double pressure, const RealVec& ys) = 0;
+    su2double ComputeEnergy(const su2double temp, const su2double pressure, const RealVec& ys) override;
 
     /*!
      * \brief Returns the formation enthalpies per unit mass of species
@@ -175,7 +176,17 @@ namespace Framework {
     su2double ComputeEnthalpy(const su2double temp,const RealVec& ys) override;
 
     /*!
-      * \brief Computes the specific heat ratio and the speed of sound.
+      * \brief Computes the specific heat at constant volume
+      * \param[in] temp - temperature
+      * \param[in] ys - mass fractions
+      * \return Specific heat at constant volume
+    */
+    su2double ComputeCV(const su2double temp,const RealVec& ys) override {
+      return ComputeCP(temp,ys) - ComputeRgas(ys);
+    }
+
+    /*!
+      * \brief Computes the specific heat at constant pressure
       * \param[in] temp - temperature
       * \param[in] ys - mass fractions
       * \return Specific heat at constant pressure
@@ -241,9 +252,10 @@ namespace Framework {
     * densities for nonequilibrium computations
     * \param[in] temp - the mixture temperature
     * \param[in] rho  - the mixture density
+    * \param[in] ys - the species mass fractions
     * \return Diffusion coefficient with constant Lewis number for each species
     */
-    RealVec GetRhoUdiff(const su2double temp, const su2double rho) override;
+    RealVec GetRhoUdiff(const su2double temp, const su2double rho, const RealVec& ys) override;
 
    /*!
     * Returns the diffusion velocities of species multiplied by the species

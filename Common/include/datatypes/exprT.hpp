@@ -5,8 +5,9 @@
 #include <type_traits>
 #include <cmath>
 #include <cstring>
+#include <vector>
 
-#include "../su2_assert.hpp"
+#include "su2_assert.hpp"
 
 #ifdef __GNUG__
 #define TF <>
@@ -15,6 +16,7 @@
 #endif
 
 namespace Common {
+
 
   /**
     * Definition of a wrapper base expression class ExprT: derived objects from ExprT use the CRTP technique
@@ -28,6 +30,7 @@ namespace Common {
   struct ExprT {
 
     using Type = T;
+    typedef typename std::vector<Type>::size_type size_type;
 
     /*!
       *\brief Cast operator to derived class (const version)
@@ -46,30 +49,30 @@ namespace Common {
    /*!
     * \brief Access operator (const version)
    */
-   //inline const Type& operator[](std::size_t i) const
-   inline Type operator[](std::size_t i) const {
+   //inline const Type& operator[](size_type i) const
+   inline Type operator[](size_type i) const {
      return this->operator const Derived&().operator[](i);
    }
 
    /*!
     * \brief Access operator (non const version)
    */
-   inline Type& operator[](std::size_t i) {
+   inline Type& operator[](size_type i) {
      return this->operator Derived&().operator[](i);
    }
 
    /*!
     * \brief Access operator (const version)
    */
-   inline Type& at(std::size_t i) {
+   inline Type& at(size_type i) {
      return this->operator Derived&().at(i);
    }
 
    /*!
     * \brief Access operator (non const version)
    */
-   //inline const Type& at(std::size_t i) const
-   inline Type at(std::size_t i) const {
+   //inline const Type& at(size_type i) const
+   inline Type at(size_type i) const {
      return this->operator const Derived&().at(i);
    }
 
@@ -77,7 +80,7 @@ namespace Common {
    /*!
     * \brief Size of the derived object
    */
-   std::size_t size() const {
+   size_type size() const {
      return this->operator const Derived&().size();
    }
 
@@ -99,6 +102,7 @@ namespace Common {
    template <class Left, class Right>			\
    struct OpName : public ExprT<OpName<Left,Right>, TYPE(Left)> {	\
      static_assert(std::is_convertible<TYPE(Left),TYPE(Right)>::value,"The types of the two vectors are not convertible"); \
+     typedef typename VET_TYPE(Left)::size_type size_type; \
                               \
      OpName(const VET_TYPE(Left)& l, const VET_TYPE(Right)& r) :e1(l), e2(r) { \
        SU2_Assert(e1.size() == e2.size(),"The size of vectors is not the same"); \
@@ -113,7 +117,7 @@ namespace Common {
        return e1.at(i) __op__ e2.at(i);\
      } \
 									\
-    std::size_t size() const { \
+    size_type size() const { \
       return e1.size();\
     }		\
                           \
@@ -152,6 +156,7 @@ namespace Common {
   template <class Left>			\
   struct OpName : public ExprT<OpName<Left>, TYPE(Left)> {	\
     static_assert(std::is_convertible<TYPE(Left),double>::value,"The type of the vector is not convertible to double"); \
+    typedef typename VET_TYPE(Left)::size_type size_type; \
                          \
     OpName(const VET_TYPE(Left)& l,const double& r): e(l),c(r) { \
       SU2_Assert(strcmp(#__op__ ,"/") && std::abs(c)>0,"You can't divide by zero"); \
@@ -166,7 +171,7 @@ namespace Common {
       return e.at(i) __op__ c;\
     } \
                  \
-    std::size_t size() const { \
+    size_type size() const { \
       return e.size();\
     }		\
                          \
@@ -204,6 +209,7 @@ namespace Common {
    template <class Right>			\
    struct OpName : public ExprT<OpName<Right>, TYPE(Right)> {	\
      static_assert(std::is_convertible<double,TYPE(Right)>::value,"The type of the vector is not convertible to double"); \
+     typedef typename VET_TYPE(Right)::size_type size_type; \
                           \
      OpName(const double& l,const VET_TYPE(Right)& r): c(l),e(r) { \
        /*SU2_Assert(strcmp(#__op__ ,"/") && std::all_of(reinterpret_cast<Right&>(*this).begin(),reinterpret_cast<Right&>(*this).end(),*/ \
@@ -219,7 +225,7 @@ namespace Common {
        return c __op__ e.at(i);\
      } \
                   \
-     std::size_t size() const { \
+     size_type size() const { \
        return e.size();\
      }		\
                           \
@@ -255,6 +261,7 @@ namespace Common {
    #define ETVEC_UNARY(OpName,result) \
    template <class Operand>			\
    struct OpName : public ExprT<OpName<Operand>, TYPE(Operand)> { \
+     typedef typename VET_TYPE(Operand)::size_type size_type; \
      OpName(const Operand& op) : e(op) {}	\
                                 \
      inline const TYPE(Operand) operator[](std::size_t i) const { \
@@ -266,7 +273,7 @@ namespace Common {
        return result(e.at(i)); \
      } \
      									\
-     std::size_t size() const { \
+     size_type size() const { \
        return e.size();\
      }			\
   private:								\

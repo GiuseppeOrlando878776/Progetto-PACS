@@ -2,11 +2,13 @@
 #define SU2_SPLINE_HPP
 
 #include "datatype_structure.hpp"
+#include "datatypes/vectorT.hpp"
 
 #include <vector>
 
 namespace MathTools {
-  typedef std::vector<su2double> RealVec;
+  
+  using RealVec = Common::RealVec;
 
   /*!
     * \brief Sets the second derivative coefficients for natural spline.
