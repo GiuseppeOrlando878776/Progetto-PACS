@@ -15,7 +15,7 @@ namespace Common {
   template<class Derived,typename T>
   struct MatExprT: public ExprT<Derived,T> {
     using Type = T;
-    typedef std::vector<std::vector<Type>>::size_type size_type;
+    typedef typename std::vector<std::vector<Type>>::size_type size_type;
 
     /*!
      * \brief Gets the number of rows

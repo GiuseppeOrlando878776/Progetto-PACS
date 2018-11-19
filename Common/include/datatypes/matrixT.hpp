@@ -393,6 +393,13 @@ namespace Common {
     }
 
     /*!
+     * \brief Clears the matrix
+    */
+    inline void clear(void) {
+      free_mem();
+    }
+
+    /*!
      * \brief Overloading of output stream operator
     */
     friend std::ostream& operator<< TF (std::ostream& out,const SU2Mat<Type>& A);

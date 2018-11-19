@@ -7,7 +7,7 @@
 #include <cstring>
 #include <vector>
 
-#include "su2_assert.hpp"
+#include "../su2_assert.hpp"
 
 #ifdef __GNUG__
 #define TF <>

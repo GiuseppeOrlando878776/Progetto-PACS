@@ -68,7 +68,7 @@ CReactiveEulerSolver::CReactiveEulerSolver(std::unique_ptr<CGeometry> geometry, 
  * \brief Set the fluid solver nondimensionalization.
  */
  void CReactiveEulerSolver::SetNondimensionalization(CGeometry* geometry, CConfig* config, unsigned short iMesh) {
-   
+
  }
 //
 //

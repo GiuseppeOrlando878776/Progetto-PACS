@@ -7,14 +7,22 @@
 namespace MathTools {
   //
   /*--- Sets the second derivative coefficients for natural spline ---*/
-  void SetSpline(RealVec& x, const RealVec& y, const su2double yp1, const su2double ypn, RealVec& y2) {
-
+  void SetSpline(const RealVec& x, const RealVec& y, const su2double yp1, const su2double ypn, RealVec& y2) {
     auto n = x.size();
     SU2_Assert(n > 1,"You have only one datum: cannot generate spline");
     SU2_Assert(y.size() == n,"The dimension of vectors x and y from data are not the same");
     SU2_Assert(std::is_sorted(x.cbegin(),x.cend()),"The vector of x is not ordered");
-    auto it = std::unique(x.begin(), x.end());
+    auto it = std::adjacent_find(x.begin(), x.end());
     SU2_Assert(it == x.end(),"Some values that have been tabulated are not unique");
+
+    bool is_equispaced = true;
+    const auto step = x[1] - x[0];
+    for(std::size_t i=2; i < n-1 && is_equispaced; ++i) {
+      const auto curr_step = x[i] - x[i-1];
+      if(curr_step != step)
+        is_equispaced = false;
+    }
+    SU2_Assert(is_equispaced,"This version of spline works only with equispaced data since it uses integer division");
 
     unsigned long i, k;
     double p, qn, sig, un;
@@ -51,37 +59,18 @@ namespace MathTools {
 
   //
   /*--- Gets the value from natural spline ---*/
-  su2double GetSpline(RealVec& x, const RealVec& y, const RealVec& y2, su2double value) {
-
-    auto n = x.size();
-    SU2_Assert(n > 1,"You have only one datum: cannot use spline");
-    SU2_Assert(y.size() == n,"The dimension of vectors x and y from data are not the same");
-    SU2_Assert(y2.size() == n,"The dimension of vector of coefficient of second derivative doesn't match");
-    SU2_Assert(std::is_sorted(x.cbegin(),x.cend()),"The vector of x is not ordered");
-    auto it = std::unique(x.begin(), x.end());
-    SU2_Assert(it == x.end(),"Some values that have been tabulated are not unique");
-
-    bool is_equispaced = true;
-    const auto step = x[1] - x[0];
-    for(std::size_t i=2; i<n and is_equispaced; ++i) {
-      const auto curr_step = x[i] - x[i-1];
-      if(curr_step != step)
-        is_equispaced = false;
-    }
-    SU2_Assert(is_equispaced,"This version of spline works only with equispaced data since it uses integer division");
-
-    if(value < x[0] or value > x[n-1])
+  su2double GetSpline(const RealVec& x, const RealVec& y, const RealVec& y2, const su2double value) {
+    if(value < x[0] || value > x.back())
       throw std::out_of_range("The required temperature is out of data range");
 
-    unsigned long klo, khi;
+    unsigned long klo;
     double h, b, a, result;
+    h = x[1] - x[0];
     klo = (value - x[0])/step + 1;
-    khi = klo + 1;
-    h = step;
-    a = (x[khi-1] - value)/h;
+    a = (x[klo] - value)/h;
     b = (value - x[klo-1])/h;
     // Cubic spline polynomial is now evaluated.
-    result = a*y[klo-1] + b*y[khi-1] + ((a*a*a-a)*y2[klo-1] + (b*b*b-b)*y2[khi-1])*(h*h)/6.0;
+    result = a*y[klo-1] + b*y[klo] + ((a*a*a - a)*y2[klo-1] + (b*b*b - b)*y2[klo])*(h*h)/6.0;
 
     return result;
 
