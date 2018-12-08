@@ -4,6 +4,7 @@
 #include "singleton.hpp"
 
 #include <string>
+#include <vector>
 
 /*!
   * This namespace provides a factory class to load run-time the library that
@@ -12,27 +13,35 @@
 
 namespace Common {
 
-/*!
- * \class AbstractFactory
- * \brief Interface for factory to load libraries at run-time.
- * \author G. Orlando
- */
+  /*!
+   * \class AbstractFactory
+   * \brief Interface for factory to load libraries at run-time.
+   * \author G. Orlando
+  */
+  class AbstractFactory: public Common::Singleton<AbstractFactory> {
+  public:
 
- class AbstractFactory: public Common::Singleton<AbstractFactory> {
- public:
-
-   /*
-    * \brief Default destrcutor
+    /*!
+      * \brief Class constructor
     */
-    virtual ~AbstractFactory() = default;
+    AbstractFactory() {}
+
+    /*!
+      * \brief Virtual destructor
+    */
+    virtual ~AbstractFactory() {}
 
     /*
      * \brief Get the name of the Base class
-     */
-
+    */
     virtual const std::string GetBaseName() const = 0;
 
-};
+    /*
+     * \brief Get all the providers in this Factory in a std::vector
+    */
+    virtual std::vector<std::string> GetAllProviders() const = 0;
+
+  };
 
 }
 

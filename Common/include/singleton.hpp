@@ -8,27 +8,19 @@ namespace Common {
     * \author G. Orlando
     */
 
-  template<typename T>
+  template<class T>
   class Singleton {
   public:
     /*!
-      * \brief Static initialization
+      * \brief Default constructor
       */
-    static Singleton& GetInstance();
+    Singleton() = default;
 
     /*!
       * \brief Virtual destructor
       */
     virtual ~Singleton() = default;
 
-  private:
-
-    /*!
-      * \brief Private default constructor
-      */
-    Singleton() = default;
-
-  public:
     /*!
       * \brief Deleted copy constructor to prevent copies
       */
@@ -39,14 +31,7 @@ namespace Common {
       */
     Singleton& operator=(const Singleton&) = delete;
 
-  }; /*-- End of class NonCopyable ---*/
-
-
-template<typename T>
-Singleton<T>& Singleton<T>::GetInstance() {
-  static Singleton instance; /*! \brief Guaranteed to be destroyed and instantiated on first use */
-  return instance;
-}
+  }; /*-- End of class Singleton ---*/
 
 } /*-- End of Namespace Common ---*/
 

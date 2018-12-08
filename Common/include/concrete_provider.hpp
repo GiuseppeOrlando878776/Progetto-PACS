@@ -1,41 +1,37 @@
 #ifndef SU2_CONCRETE_PROVIDER
 #define SU2_CONCRETE_PROVIDER
 
-#include "abstract_provider.hpp"
-
-#include <string>
-#include <cassert>
+#include "provider.hpp"
 
 namespace Common {
 
-/*!
-  * \brief Concrete class for provider types
-  * \author G. Orlando
+  /*!
+    * \brief Concrete class for provider types
+    * \author G. Orlando
   */
 
-template<class Base>
-class ConcreteProvider: public Common::AbstractProvider<Base> {
+  template<class Base>
+  class ConcreteProvider: public Common::Provider<Base> {
 
-public:
+  public:
 
-  /*!
-    * \brief Constructor of the class
+    /*!
+      * \brief Constructor of the class
     */
-  explicit ConcreteProvider(const std::string& name): Common::AbstractProvider<Base>(name) {}
+    explicit ConcreteProvider(const std::string& name): Common::Provider<Base>(name) {}
 
-  /*!
-    * \brief Virtual destructor
+    /*!
+      * \brief Virtual destructor
     */
-  ~ConcreteProvider() {}
+    ~ConcreteProvider() {}
 
-  /*!
-    *\brief Free an instance created by the factory
-    *\@param ptr pointer to be freed
+    /*!
+      *\brief Create an instance of provider: it must take exactly one argument
+      *\param[in] arg - argument to construct the desired provider
     */
-  virtual std::unique_ptr<Base>  Create(typename Base::Arg1 arg) = 0;
+    virtual std::unique_ptr<Base> Create(typename Base::Arg1 arg) = 0;
 
-
-}; /*-- End of class ConcreteProvider ---*/
+  }; /*-- End of class ConcreteProvider ---*/
 
 
 } /*-- End of namespace Common ---*/

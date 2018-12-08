@@ -1,7 +1,7 @@
 #ifndef SU2_ABSTRACT_PROVIDER
 #define SU2_ABSTRACT_PROVIDER
 
-#include "factory.hpp"
+#include "singleton.hpp"
 
 #include <string>
 
@@ -12,37 +12,26 @@ namespace Common {
   * \author G. Orlando
   */
 
-  template<class Base>
-  class AbstractProvider {
+  class AbstractProvider: public Common::Singleton<AbstractProvider> {
 
   public:
 
     /*!
-      * \brief Explicit constructor
-      */
-    explicit AbstractProvider(const std::string& name):provider_name(name) {
-      Common::Factory<Base>::GetInstance().Regist(this);
-    }
+      * \brief Class constructor
+    */
+    AbstractProvider() {}
 
     /*!
       * \brief Virtual destructor
-      */
+    */
     virtual ~AbstractProvider() {}
 
     /*!
       * \brief Get the name of this provider
-      */
-    inline std::string GetProviderName(void) const {
-      return provider_name;
-    }
+    */
+    virtual std::string GetProviderName(void) const = 0;
 
-  private:
-
-    std::string provider_name;
-
-}; /*-- End of class AbstractProvider ---*/
-
-//////////////////////////////////////////////////////////////////////////////
+  }; /*-- End of class AbstractProvider ---*/
 
 } /*-- End of namespace Common ---*/
 
