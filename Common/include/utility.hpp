@@ -3,7 +3,7 @@
 
 #include <set>
 #include <map>
-#include "datatypes/vectorT.hpp"
+#include "datatypes/matrixT.hpp"
 #include "su2_assert.hpp"
 
 namespace Utility {
@@ -22,7 +22,6 @@ namespace Utility {
     * \param[out] species_names - detected symbols of the species
   */
   void Parse_Terms(std::string& line, unsigned n_reac, const MyMap& map_names, RealMatrix& stoich, RealMatrix& stoich_exp, MySet& species_names);
-
 
 }
 
