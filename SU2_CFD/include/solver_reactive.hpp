@@ -29,6 +29,9 @@ protected:
         second_order, /*!< \brief True if second order recosntruction is applied. */
         limiter; /*!< \brief True if limiting strategy is applied. */
 
+  bool  turbulent,   /*!< \brief True if a turbulence model is used. */
+        tkeNeeded;   /*!< \brief True if a turbulent kinetic energy model is used. */
+
   RealVec   Lower_Limit,   /*!< \brief Lower limit conserved variables. */
             Upper_Limit;   /*!< \brief Upper limit conserved variables. */
 

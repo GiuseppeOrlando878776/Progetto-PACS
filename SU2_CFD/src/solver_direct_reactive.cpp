@@ -33,8 +33,9 @@ CReactiveEulerSolver::LibraryPtr CReactiveEulerSolver::library = CReactiveEulerV
   */
 //
 //
-CReactiveEulerSolver::CReactiveEulerSolver(): CSolver(),nSpecies(),nPrimVarLim(),space_centered(),implicit(),grid_movement(),least_squares(),
-                                              second_order(),limiter(),Density_Inf(),Pressure_Inf(),Temperature_Inf() {
+CReactiveEulerSolver::CReactiveEulerSolver(): CSolver(),nSpecies(),nPrimVarLim(),space_centered(),implicit(),grid_movement(),
+                                              least_squares(),second_order(),limiter(),Density_Inf(),Pressure_Inf(),
+                                              Temperature_Inf(),turbulent(),tkeNeeded() {
   std::tie(nSecondaryVar,nSecondaryVarGrad,nVarGrad,IterLinSolver) = Common::repeat<4,decltype(nVarGrad)>(decltype(nVarGrad)());
 
   Max_Delta_Time = 0.0;
@@ -55,6 +56,9 @@ CReactiveEulerSolver::CReactiveEulerSolver(CGeometry* geometry, CConfig* config,
   unsigned short iVar,iDim;
 
   std::tie(nSecondaryVar,nSecondaryVarGrad,nVarGrad,IterLinSolver) = Common::repeat<4,decltype(nVarGrad)>(decltype(nVarGrad)());
+
+  turbulent = config->GetKind_Solver() == RANS;
+  tkeNeeded = turbulent && config->GetKind_Turb_Model() == SST;
 
   bool restart = config->GetRestart() || config->GetRestart_Flow();
   bool time_stepping = config->GetUnsteady_Simulation() == TIME_STEPPING;
@@ -2255,6 +2259,8 @@ void CReactiveEulerSolver::BC_Supersonic_Inlet(CGeometry* geometry, CSolver** so
   V_inlet[CReactiveEulerVariable::RHO_INDEX_PRIM] = Density;
   su2double Velocity2 = std::inner_product(Velocity.cbegin(), Velocity.cend() ,Velocity.cbegin(), 0.0);
   V_inlet[CReactiveEulerVariable::H_INDEX_PRIM] = Enthalpy + 0.5*Velocity2;
+  if(tkeNeeded)
+    V_inlet[CReactiveEulerVariable::H_INDEX_PRIM] += config->GetTke_FreeStreamND();
   V_inlet[CReactiveEulerVariable::A_INDEX_PRIM] = SoundSpeed;
   std::copy(MassFrac.cbegin(), MassFrac.cend(), V_inlet.begin() + CReactiveEulerVariable::RHOS_INDEX_PRIM);
 
@@ -2297,6 +2303,10 @@ void CReactiveEulerSolver::BC_Supersonic_Inlet(CGeometry* geometry, CSolver** so
           /*--- Set the normal vector and the coordinates ---*/
   				visc_numerics->SetNormal(Normal);
   				visc_numerics->SetCoord(geometry->node[iPoint]->GetCoord(), geometry->node[Point_Normal]->GetCoord());
+
+          if(turbulent)
+            visc_numerics->SetTurbKineticEnergy(solver_container[TURB_SOL]->node[iPoint]->GetSolution(0),
+                                                solver_container[TURB_SOL]->node[iPoint]->GetSolution(0));
 
   				/*--- Primitive variables, and gradient ---*/
   				visc_numerics->SetPrimitive(V_domain, V_inlet.data());
@@ -2527,6 +2537,8 @@ void CReactiveEulerSolver::BC_Outlet(CGeometry* geometry, CSolver** solver_conta
         if(US_System)
           V_outlet[CReactiveEulerVariable::H_INDEX_PRIM] *= 3.28084*3.28084;
         V_outlet[CReactiveEulerVariable::H_INDEX_PRIM] += 0.5*Velocity2;
+        if(tkeNeeded)
+          V_outlet[CReactiveEulerVariable::H_INDEX_PRIM] += config->GetTke_FreeStreamND();
         V_outlet[CReactiveEulerVariable::A_INDEX_PRIM] = SoundSpeed;
         for(iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
           V_outlet[CReactiveEulerVariable::RHOS_INDEX_PRIM + iSpecies] = Ys[iSpecies]*Density;
@@ -2560,6 +2572,10 @@ void CReactiveEulerSolver::BC_Outlet(CGeometry* geometry, CSolver** solver_conta
         /*--- Set the normal vector and the coordinates ---*/
         visc_numerics->SetNormal(Normal);
         visc_numerics->SetCoord(geometry->node[iPoint]->GetCoord(), geometry->node[Point_Normal]->GetCoord());
+
+        if(turbulent)
+          visc_numerics->SetTurbKineticEnergy(solver_container[TURB_SOL]->node[iPoint]->GetSolution(0),
+                                              solver_container[TURB_SOL]->node[iPoint]->GetSolution(0));
 
         /*--- Primitive variables and gradient ---*/
         visc_numerics->SetPrimitive(V_domain, V_outlet.data());
@@ -3073,6 +3089,20 @@ void CReactiveNSSolver::SetNondimensionalization(CGeometry* geometry, CConfig* c
   su2double Viscosity_Ref = 0.0, Conductivity_Ref = 0.0;
   su2double Viscosity_FreeStreamND = 0.0;
 
+  if(tkeNeeded) {
+    su2double Tke_FreeStream = 3.0/2.0*(config->GetModVel_FreeStream()*config->GetModVel_FreeStream()*config->GetTurbulenceIntensity_FreeStream()*
+                                        config->GetTurbulenceIntensity_FreeStream());
+    config->SetTke_FreeStream(Tke_FreeStream);
+    config->SetEnergy_FreeStream(config->GetEnergy_FreeStream() + Tke_FreeStream);
+
+    su2double Tke_FreeStreamND  = 3.0/2.0*(config->GetModVel_FreeStreamND()*config->GetModVel_FreeStreamND()*
+                                           config->GetTurbulenceIntensity_FreeStream()*config->GetTurbulenceIntensity_FreeStream());
+    config->SetTke_FreeStreamND(Tke_FreeStreamND);
+    config->SetEnergy_FreeStreamND(config->GetEnergy_FreeStreamND() + Tke_FreeStreamND);
+
+    config->SetEnergy_Ref(config->GetEnergy_FreeStream()/config->GetEnergy_FreeStreamND());
+  }
+
   Viscosity_Ref = config->GetDensity_Ref()*config->GetVelocity_Ref()*config->GetLength_Ref();
   config->SetViscosity_Ref(Viscosity_Ref);
 
@@ -3094,21 +3124,58 @@ void CReactiveNSSolver::SetNondimensionalization(CGeometry* geometry, CConfig* c
   Viscosity_FreeStreamND = Viscosity_FreeStream / Viscosity_Ref;
   config->SetViscosity_FreeStreamND(Viscosity_FreeStreamND);
 
+  su2double Omega_FreeStream = config->GetDensity_FreeStream()*config->GetTke_FreeStream()/
+                               (Viscosity_FreeStream*config->GetTurb2LamViscRatio_FreeStream());
+  config->SetOmega_FreeStream(Omega_FreeStream);
+
+  su2double Omega_FreeStreamND = config->GetDensity_FreeStreamND()*config->GetTke_FreeStreamND()/
+                                 (Viscosity_FreeStreamND*config->GetTurb2LamViscRatio_FreeStream());
+  config->SetOmega_FreeStreamND(Omega_FreeStreamND);
+
   /*--- Write output to the console if this is the master node and first domain ---*/
   if(config->GetConsole_Output_Verb() == VERB_HIGH && rank == MASTER_NODE && iMesh == MESH_0) {
     std::cout.precision(6);
 
+    if(tkeNeeded) {
+      std::cout<< "Free-stream total energy per unit mass including turbulent kinetic energy: " << config->GetEnergy_FreeStream();
+      if(SI_Measurement)
+        std::cout << " m^2/s^2." << std::endl;
+      else if(US_Measurament)
+        std::cout << " ft^2/s^2." << std::endl;
+
+      std::cout << "Free-stream turb. kinetic energy per unit mass: " << config->GetTke_FreeStream();
+      if(SI_Measurement)
+        std::cout << " m^2/s^2." << endl;
+      else if(US_Measurament)
+        std::cout << " ft^2/s^2." << std::endl;
+
+      std::cout << "Free-stream specific dissipation: " << config->GetOmega_FreeStream();
+      if(SI_Measurement)
+        std::cout << " 1/s." << std::endl;
+      else if(US_Measurament)
+        std::cout << " 1/s." << std::endl;
+
+      std::cout << "Reference energy per unit mass including turbulent kinetic energy: " << config->GetEnergy_Ref();
+      if(SI_Measurement)
+        std::cout << " m^2/s^2." << std::endl;
+      else if(US_Measurament)
+        std::cout << " ft^2/s^2." << std::endl;
+    }
+
     std::cout<< "Reference viscosity: " << config->GetViscosity_Ref();
     if(SI_Measurement)
       std::cout << " N.s/m^2."<< std::endl;
-    if(US_Measurament)
+    else if(US_Measurament)
       std::cout<< " lbf.s/ft^2."<< std::endl;
 
     std::cout << "Reference conductivity: " << config->GetConductivity_Ref();
     if(SI_Measurement)
       std::cout << " W/m.K."<< std::endl;
-    if(US_Measurament)
+    else if(US_Measurament)
       std::cout << " lbf/s.R."<< std::endl;
+
+    std::cout << "Free-stream turb. kinetic energy (non-dim): " << config->GetTke_FreeStreamND() << endl;
+    std::cout << "Free-stream specific dissipation (non-dim): " << config->GetOmega_FreeStreamND() << endl;
 
     config->SetReynolds(config->GetDensity_FreeStream()*config->GetModVel_FreeStream()*config->GetLength_Ref()/Viscosity_FreeStream);
     std::cout<< "Reynolds number (non-dim): " << config->GetReynolds() <<std::endl;
@@ -3117,7 +3184,6 @@ void CReactiveNSSolver::SetNondimensionalization(CGeometry* geometry, CConfig* c
 
     std::cout<<std::endl;
   }
-
 }
 
 //
@@ -3171,6 +3237,10 @@ void CReactiveNSSolver::Viscous_Residual(CGeometry* geometry, CSolver** solution
     /*--- Species binary coefficients ---*/
     dynamic_cast<CAvgGradReactive_Flow*>(numerics)->SetBinaryDiffCoeff(dynamic_cast<CReactiveNSVariable*>(node[iPoint])->GetBinaryDiffusionCoeff(),
                                                                        dynamic_cast<CReactiveNSVariable*>(node[jPoint])->GetBinaryDiffusionCoeff());
+
+    if(turbulent)
+      numerics->SetTurbKineticEnergy(solution_container[TURB_SOL]->node[iPoint]->GetSolution(0),
+                                     solution_container[TURB_SOL]->node[jPoint]->GetSolution(0));
 
     /*--- Compute the residual ---*/
     try {
