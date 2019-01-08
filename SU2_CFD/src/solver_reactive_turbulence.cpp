@@ -1,7 +1,7 @@
 #include "../include/solver_reactive_turbulence.hpp"
+
 #include "../../Common/include/su2_assert.hpp"
 #include "../include/variable_reactive.hpp"
-#include "../include/variable_reactive_turbulence.hpp"
 
 //
 //
@@ -12,16 +12,9 @@
 //
 CReactiveTurbSolver::CReactiveTurbSolver(CGeometry* geometry, CConfig* config, unsigned short iMesh): CTurbSolver() {
   unsigned short iVar, iDim, nLineLets;
-  unsigned long iPoint, index;
-  su2double dull_val;
-  std::ifstream restart_file;
-  std::string text_line;
+  unsigned long iPoint;
 
-  unsigned short iZone = config->GetiZone();
-  unsigned short nZone = geometry->GetnZone();
-  bool restart = config->GetRestart() || config->GetRestart_Flow();
-  bool dual_time = config->GetUnsteady_Simulation() == DT_STEPPING_1ST || config->GetUnsteady_Simulation() == DT_STEPPING_2ND;
-  bool time_stepping = config->GetUnsteady_Simulation() == TIME_STEPPING;
+  bool restart = (config->GetRestart() || config->GetRestart_Flow());
 
   int rank = MASTER_NODE;
   #ifdef HAVE_MPI
@@ -109,11 +102,11 @@ CReactiveTurbSolver::CReactiveTurbSolver(CGeometry* geometry, CConfig* config, u
   lowerlimit = new su2double[nVar];
   upperlimit = new su2double[nVar];
 
-  lowerlimit[0] = 1.0e-10;
-  upperlimit[0] = 1.0e10;
+  lowerlimit[CReactiveTurbVariable::TURB_KINE_INDEX] = 1.0e-10;
+  upperlimit[CReactiveTurbVariable::TURB_KINE_INDEX] = 1.0e10;
 
-  lowerlimit[1] = 1.0e-4;
-  upperlimit[1] = 1.0e15;
+  lowerlimit[CReactiveTurbVariable::TURB_OMEGA_INDEX] = 1.0e-4;
+  upperlimit[CReactiveTurbVariable::TURB_OMEGA_INDEX] = 1.0e15;
 
   /*--- Flow infinity initialization stuff ---*/
   auto rhoInf    = config->GetDensity_FreeStreamND();
@@ -136,109 +129,130 @@ CReactiveTurbSolver::CReactiveTurbSolver(CGeometry* geometry, CConfig* config, u
     for(iPoint = 0; iPoint < nPoint; ++iPoint)
       node[iPoint] = new CReactiveTurbVariable(kine_Inf, omega_Inf, muT_Inf, nDim, nVar, config);
   }
-  else {
-    /*--- Restart the solution from file information ---*/
-    std::ifstream restart_file;
-    std::string filename = config->GetSolution_FlowFileName();
-
-    /*--- Modify file name for multizone problems ---*/
-    if(nZone > 1)
-      filename = config->GetMultizone_FileName(filename, iZone);
-
-    /*--- Modify file name for an unsteady restart ---*/
-    if(dual_time || time_stepping) {
-      int Unst_RestartIter;
-      if(config->GetUnsteady_Simulation() == DT_STEPPING_1ST)
-        Unst_RestartIter = SU2_TYPE::Int(config->GetUnst_RestartIter())-1;
-      else if(config->GetUnsteady_Simulation() == DT_STEPPING_2ND)
-        Unst_RestartIter = SU2_TYPE::Int(config->GetUnst_RestartIter())-2;
-      filename = config->GetUnsteady_FileName(filename, Unst_RestartIter);
-    }
-
-    /*--- Open the restart file, throw an error if this fails. ---*/
-    restart_file.open(filename.data(), std::ios::in);
-    if(restart_file.fail()) {
-      std::cout << "There is no turbulent restart file!!" << std::endl;
-      std::exit(EXIT_FAILURE);
-    }
-
-    /*--- In case this is a parallel simulation, we need to perform the
-          Global2Local index transformation first. ---*/
-    std::map<unsigned long,unsigned long> Global2Local;
-
-    /*--- Now fill array with the transform values only for local points ---*/
-    for(iPoint = 0; iPoint < nPointDomain; ++iPoint)
-      Global2Local[geometry->node[iPoint]->GetGlobalIndex()] = iPoint;
-
-    /*--- Read all lines in the restart file ---*/
-    long iPoint_Local;
-    unsigned long iPoint_Global;
-    std::string text_line;
-    unsigned long iPoint_Global_Local = 0;
-    unsigned short rbuf_NotMatching = 0,
-    sbuf_NotMatching = 0;
-
-    /*--- The first line is the header ---*/
-    std::getline(restart_file, text_line);
-
-    for(iPoint_Global = 0; iPoint_Global < geometry->GetGlobal_nPointDomain(); ++iPoint_Global) {
-      std::getline(restart_file, text_line);
-      std::istringstream point_line(text_line);
-
-      /*--- Retrieve local index. If this node from the restart file lives
-            on the current processor, we will load and instantiate the vars. ---*/
-      auto MI = Global2Local.find(iPoint_Global);
-      if(MI != Global2Local.end()) {
-
-        iPoint_Local = Global2Local[iPoint_Global];
-        if(nDim == 2)
-          point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> Solution[0] >> Solution[1];
-        if(nDim == 3)
-          point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >>
-                        Solution[0] >> Solution[1];
-
-        /*--- Instantiate the solution at this node, note that the muT_Inf should recomputed ---*/
-        node[iPoint_Local] = new CReactiveTurbVariable(Solution[0], Solution[1], muT_Inf, nDim, nVar, config);
-        iPoint_Global_Local++;
-      }
-    }
-
-    /*--- Detect a wrong solution file ---*/
-    if(iPoint_Global_Local < nPointDomain)
-      sbuf_NotMatching = 1;
-
-    #ifndef HAVE_MPI
-      rbuf_NotMatching = sbuf_NotMatching;
-    #else
-      SU2_MPI::Allreduce(&sbuf_NotMatching, &rbuf_NotMatching, 1, MPI_UNSIGNED_SHORT, MPI_SUM, MPI_COMM_WORLD);
-    #endif
-    if(rbuf_NotMatching != 0) {
-      if(rank == MASTER_NODE) {
-        std::cout << std::endl << "The solution file " << filename.data() << " doesn't match with the mesh file!" << std::endl;
-        std::cout << "It could be empty lines at the end of the file." << std::endl << std::endl;
-      }
-      #ifndef HAVE_MPI
-        std::exit(EXIT_FAILURE);
-      #else
-        MPI_Barrier(MPI_COMM_WORLD);
-        MPI_Abort(MPI_COMM_WORLD,1);
-        MPI_Finalize();
-      #endif
-    }
-
-    /*--- Instantiate the variable class with an arbitrary solution
-          at any halo/periodic nodes. The initial solution can be arbitrary,
-          because a send/recv is performed immediately in the solver. ---*/
-    for(iPoint = nPointDomain; iPoint < nPoint; ++iPoint)
-      node[iPoint] = new CReactiveTurbVariable(Solution[0], Solution[1], muT_Inf, nDim, nVar, config);
-
-    /*--- Close the restart file ---*/
-    restart_file.close();
-  }
+  else
+    LoadRestart(geometry, config, rank, muT_Inf);
 
   /*--- MPI solution ---*/
   Set_MPI_Solution(geometry, config);
 }
+
+
+//
+//
+/*!
+ * \brief Load the file for restart
+ */
+//
+//
+void CReactiveTurbSolver::LoadRestart(CGeometry* geometry, CConfig* config, int rank, su2double muT_Inf) {
+  unsigned long iPoint, index;
+  su2double dull_val;
+  unsigned short nZone = geometry->GetnZone();
+  unsigned short iZone = config->GetiZone();
+  bool dual_time = (config->GetUnsteady_Simulation() == DT_STEPPING_1ST || config->GetUnsteady_Simulation() == DT_STEPPING_2ND);
+  bool time_stepping = (config->GetUnsteady_Simulation() == TIME_STEPPING);
+
+  /*--- Restart the solution from file information ---*/
+  std::ifstream restart_file;
+  std::string filename = config->GetSolution_FlowFileName();
+
+  /*--- Modify file name for multizone problems ---*/
+  if(nZone > 1)
+    filename = config->GetMultizone_FileName(filename, iZone);
+
+  /*--- Modify file name for an unsteady restart ---*/
+  if(dual_time || time_stepping) {
+    int Unst_RestartIter;
+    if(config->GetUnsteady_Simulation() == DT_STEPPING_1ST)
+      Unst_RestartIter = SU2_TYPE::Int(config->GetUnst_RestartIter())-1;
+    else if(config->GetUnsteady_Simulation() == DT_STEPPING_2ND)
+      Unst_RestartIter = SU2_TYPE::Int(config->GetUnst_RestartIter())-2;
+    filename = config->GetUnsteady_FileName(filename, Unst_RestartIter);
+  }
+
+  /*--- Open the restart file, throw an error if this fails. ---*/
+  restart_file.open(filename.data(), std::ios::in);
+  if(restart_file.fail()) {
+    std::cout << "There is no turbulent restart file!!" << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+
+  /*--- In case this is a parallel simulation, we need to perform the
+        Global2Local index transformation first. ---*/
+  std::map<unsigned long,unsigned long> Global2Local;
+
+  /*--- Now fill array with the transform values only for local points ---*/
+  for(iPoint = 0; iPoint < nPointDomain; ++iPoint)
+    Global2Local[geometry->node[iPoint]->GetGlobalIndex()] = iPoint;
+
+  /*--- Read all lines in the restart file ---*/
+  long iPoint_Local;
+  unsigned long iPoint_Global;
+  std::string text_line;
+  unsigned long iPoint_Global_Local = 0;
+  unsigned short rbuf_NotMatching = 0,
+  sbuf_NotMatching = 0;
+
+  /*--- The first line is the header ---*/
+  std::getline(restart_file, text_line);
+
+  for(iPoint_Global = 0; iPoint_Global < geometry->GetGlobal_nPointDomain(); ++iPoint_Global) {
+    std::getline(restart_file, text_line);
+    std::istringstream point_line(text_line);
+
+    /*--- Retrieve local index. If this node from the restart file lives
+          on the current processor, we will load and instantiate the vars. ---*/
+    auto MI = Global2Local.find(iPoint_Global);
+    if(MI != Global2Local.end()) {
+      iPoint_Local = Global2Local[iPoint_Global];
+      if(nDim == 2)
+        point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >>
+                      Solution[CReactiveTurbVariable::TURB_KINE_INDEX] >> Solution[CReactiveTurbVariable::TURB_OMEGA_INDEX];
+      if(nDim == 3)
+        point_line >> index >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >> dull_val >>
+                      Solution[CReactiveTurbVariable::TURB_KINE_INDEX] >> Solution[CReactiveTurbVariable::TURB_OMEGA_INDEX];
+
+      /*--- Instantiate the solution at this node, note that the muT_Inf should recomputed ---*/
+      node[iPoint_Local] = new CReactiveTurbVariable(Solution[CReactiveTurbVariable::TURB_KINE_INDEX],
+                                                     Solution[CReactiveTurbVariable::TURB_OMEGA_INDEX], muT_Inf, nDim, nVar, config);
+      iPoint_Global_Local++;
+    }
+  }
+
+  /*--- Detect a wrong solution file ---*/
+  if(iPoint_Global_Local < nPointDomain)
+    sbuf_NotMatching = 1;
+
+  #ifndef HAVE_MPI
+    rbuf_NotMatching = sbuf_NotMatching;
+  #else
+    SU2_MPI::Allreduce(&sbuf_NotMatching, &rbuf_NotMatching, 1, MPI_UNSIGNED_SHORT, MPI_SUM, MPI_COMM_WORLD);
+  #endif
+  if(rbuf_NotMatching != 0) {
+    if(rank == MASTER_NODE) {
+      std::cout << std::endl << "The solution file " << filename.data() << " doesn't match with the mesh file!" << std::endl;
+      std::cout << "It could be empty lines at the end of the file." << std::endl << std::endl;
+    }
+    #ifndef HAVE_MPI
+      std::exit(EXIT_FAILURE);
+    #else
+      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Abort(MPI_COMM_WORLD,1);
+      MPI_Finalize();
+    #endif
+  }
+
+  /*--- Instantiate the variable class with an arbitrary solution
+        at any halo/periodic nodes. The initial solution can be arbitrary,
+        because a send/recv is performed immediately in the solver. ---*/
+  for(iPoint = nPointDomain; iPoint < nPoint; ++iPoint)
+    node[iPoint] = new CReactiveTurbVariable(Solution[CReactiveTurbVariable::TURB_KINE_INDEX],
+                                             Solution[CReactiveTurbVariable::TURB_OMEGA_INDEX], muT_Inf, nDim, nVar, config);
+
+  /*--- Close the restart file ---*/
+  restart_file.close();
+}
+
 
 //
 //
@@ -251,7 +265,7 @@ void CReactiveTurbSolver::Preprocessing(CGeometry* geometry, CSolver** solver_co
                                         unsigned short iMesh, unsigned short iRKStep, unsigned short RunTime_EqSystem, bool Output) {
   unsigned long iPoint;
   unsigned long ExtIter = config->GetExtIter();
-  bool limiter_flow     = config->GetSpatialOrder_Flow() == SECOND_ORDER_LIMITER && ExtIter <= config->GetLimiterIter();
+  bool limiter_flow     = (config->GetSpatialOrder_Flow() == SECOND_ORDER_LIMITER && ExtIter <= config->GetLimiterIter());
 
   for(iPoint = 0; iPoint < nPoint; ++iPoint) {
     /*--- Initialize the residual vector ---*/
@@ -287,22 +301,67 @@ void CReactiveTurbSolver::Postprocessing(CGeometry* geometry, CSolver** solver_c
 
   /*--- Compute mean flow and turbulence gradients ---*/
   if(config->GetKind_Gradient_Method() == GREEN_GAUSS) {
-//    solver_container[FLOW_SOL]->SetPrimitive_Gradient_GG(geometry, config);
+    //solver_container[FLOW_SOL]->SetPrimitive_Gradient_GG(geometry, config);
     SetSolution_Gradient_GG(geometry, config);
   }
   else if(config->GetKind_Gradient_Method() == WEIGHTED_LEAST_SQUARES) {
-//    solver_container[FLOW_SOL]->SetPrimitive_Gradient_LS(geometry, config);
+    //solver_container[FLOW_SOL]->SetPrimitive_Gradient_LS(geometry, config);
     SetSolution_Gradient_LS(geometry, config);
   }
 
   for(iPoint = 0; iPoint < nPoint; ++iPoint) {
-    rho  = solver_container[FLOW_SOL]->node[iPoint]->GetDensity();
+    rho = solver_container[FLOW_SOL]->node[iPoint]->GetDensity();
 
     /*--- Compute the eddy viscosity ---*/
-    kine  = node[iPoint]->GetSolution(0);
-    omega = node[iPoint]->GetSolution(1);
+    kine  = node[iPoint]->GetSolution(CReactiveTurbVariable::TURB_KINE_INDEX);
+    omega = node[iPoint]->GetSolution(CReactiveTurbVariable::TURB_OMEGA_INDEX);
     muT = rho*kine/omega;
     node[iPoint]->SetmuT(muT);
+  }
+}
+
+//
+//
+/*!
+ * \brief Computing viscous residual
+ */
+//
+//
+void CReactiveTurbSolver::Viscous_Residual(CGeometry* geometry, CSolver** solver_container, CNumerics* numerics,
+                                           CConfig* config, unsigned short iMesh, unsigned short iRKStep) {
+  unsigned long iEdge, iPoint, jPoint;
+
+  for(iEdge = 0; iEdge < geometry->GetnEdge(); ++iEdge) {
+    /*--- Points in edge ---*/
+    iPoint = geometry->edge[iEdge]->GetNode(0);
+    jPoint = geometry->edge[iEdge]->GetNode(1);
+
+    /*--- Points coordinates, and normal vector ---*/
+    numerics->SetCoord(geometry->node[iPoint]->GetCoord(), geometry->node[jPoint]->GetCoord());
+    numerics->SetNormal(geometry->edge[iEdge]->GetNormal());
+
+    /*--- Conservative variables w/o reconstruction ---*/
+    numerics->SetPrimitive(solver_container[FLOW_SOL]->node[iPoint]->GetPrimitive(),
+                           solver_container[FLOW_SOL]->node[jPoint]->GetPrimitive());
+    numerics->SetLaminarViscosity(solver_container[FLOW_SOL]->node[iPoint]->GetLaminarViscosity(),
+                                  solver_container[FLOW_SOL]->node[jPoint]->GetLaminarViscosity());
+    numerics->SetEddyViscosity(node[iPoint]->GetmuT(), node[jPoint]->GetmuT());
+
+    /*--- Turbulent variables w/o reconstruction, and its gradients ---*/
+    numerics->SetTurbVar(node[iPoint]->GetSolution(), node[jPoint]->GetSolution());
+    numerics->SetTurbVarGradient(node[iPoint]->GetGradient(), node[jPoint]->GetGradient());
+
+    /*--- Compute residual, and Jacobians ---*/
+    numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
+
+    /*--- Add and subtract residual, and update Jacobians ---*/
+    LinSysRes.SubtractBlock(iPoint, Residual);
+    LinSysRes.AddBlock(jPoint, Residual);
+
+    Jacobian.SubtractBlock(iPoint, iPoint, Jacobian_i);
+    Jacobian.SubtractBlock(iPoint, jPoint, Jacobian_j);
+    Jacobian.AddBlock(jPoint, iPoint, Jacobian_i);
+    Jacobian.AddBlock(jPoint, jPoint, Jacobian_j);
   }
 }
 
@@ -315,8 +374,7 @@ void CReactiveTurbSolver::Postprocessing(CGeometry* geometry, CSolver** solver_c
 //
 void CReactiveTurbSolver::Source_Residual(CGeometry* geometry, CSolver** solver_container, CNumerics* numerics,
                                           CNumerics* second_numerics, CConfig* config, unsigned short iMesh) {
-  unsigned long iPoint;
-  for(iPoint = 0; iPoint < nPointDomain; ++iPoint) {
+  for(unsigned long iPoint = 0; iPoint < nPointDomain; ++iPoint) {
     /*--- Conservative variables w/o reconstruction ---*/
     numerics->SetPrimitive(solver_container[FLOW_SOL]->node[iPoint]->GetPrimitive(), NULL);
 
@@ -334,6 +392,7 @@ void CReactiveTurbSolver::Source_Residual(CGeometry* geometry, CSolver** solver_
     numerics->SetDistance(geometry->node[iPoint]->GetWall_Distance(), 0.0);
 
     /*--- Set vorticity and strain rate magnitude ---*/
+    numerics->SetEddyViscosity(node[iPoint]->GetmuT(), 0.0);
     numerics->SetVorticity(solver_container[FLOW_SOL]->node[iPoint]->GetVorticity(), NULL);
     numerics->SetStrainMag(solver_container[FLOW_SOL]->node[iPoint]->GetStrainMag(), 0.0);
 
@@ -357,6 +416,7 @@ void CReactiveTurbSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver
                                            CNumerics* visc_numerics, CConfig* config, unsigned short val_marker) {
   unsigned long iPoint, jPoint, iVertex, total_index;
   unsigned short iDim, iVar;
+
   su2double distance, density, laminar_viscosity;
 
   for(iVertex = 0; iVertex < geometry->nVertex[val_marker]; ++iVertex) {
@@ -378,8 +438,8 @@ void CReactiveTurbSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver
       laminar_viscosity = solver_container[FLOW_SOL]->node[jPoint]->GetLaminarViscosity();
 
       const su2double beta_1 = 3.0/40;
-      Solution[0] = 0.0;
-      Solution[1] = 60.0*laminar_viscosity/(density*beta_1*distance*distance);
+      Solution[CReactiveTurbVariable::TURB_KINE_INDEX] = 0.0;
+      Solution[CReactiveTurbVariable::TURB_OMEGA_INDEX] = 60.0*laminar_viscosity/(density*beta_1*distance*distance);
 
       /*--- Set the solution values and zero the residual ---*/
       node[iPoint]->SetSolution_Old(Solution);
@@ -392,7 +452,7 @@ void CReactiveTurbSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver
         Jacobian.DeleteValsRowi(total_index);
       }
     }
-  }
+  } /*--- End of iVertex for loop ---*/
 }
 
 //
@@ -404,44 +464,7 @@ void CReactiveTurbSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver
 //
 void CReactiveTurbSolver::BC_Isothermal_Wall(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics,
                                              CNumerics* visc_numerics, CConfig* config, unsigned short val_marker) {
-  unsigned long iPoint, jPoint, iVertex, total_index;
-  unsigned short iDim, iVar;
-  su2double distance, density, laminar_viscosity;
-
-  for(iVertex = 0; iVertex < geometry->nVertex[val_marker]; ++iVertex) {
-    iPoint = geometry->vertex[val_marker][iVertex]->GetNode();
-
-    /*--- Check if the node belongs to the domain (i.e, not a halo node) ---*/
-    if(geometry->node[iPoint]->GetDomain()) {
-      /*--- Distance to closest neighbor ---*/
-      jPoint = geometry->vertex[val_marker][iVertex]->GetNormal_Neighbor();
-      distance = 0.0;
-      for(iDim = 0; iDim < nDim; ++iDim) {
-        distance += (geometry->node[iPoint]->GetCoord(iDim) - geometry->node[jPoint]->GetCoord(iDim))*
-                    (geometry->node[iPoint]->GetCoord(iDim) - geometry->node[jPoint]->GetCoord(iDim));
-      }
-      distance = std::sqrt(distance);
-
-      /*--- Set wall values ---*/
-      density = solver_container[FLOW_SOL]->node[jPoint]->GetDensity();
-      laminar_viscosity = solver_container[FLOW_SOL]->node[jPoint]->GetLaminarViscosity();
-
-      const su2double beta_1 = 3.0/40;
-      Solution[0] = 0.0;
-      Solution[1] = 60.0*laminar_viscosity/(density*beta_1*distance*distance);
-
-      /*--- Set the solution values and zero the residual ---*/
-      node[iPoint]->SetSolution_Old(Solution);
-      node[iPoint]->SetSolution(Solution);
-      LinSysRes.SetBlock_Zero(iPoint);
-
-      /*--- Change rows of the Jacobian (includes 1 in the diagonal) ---*/
-      for(iVar = 0; iVar < nVar; ++iVar) {
-        total_index = iPoint*nVar+iVar;
-        Jacobian.DeleteValsRowi(total_index);
-      }
-    }
-  }
+  BC_HeatFlux_Wall(geometry, solver_container, conv_numerics, visc_numerics, config, val_marker);
 }
 
 //
@@ -475,8 +498,8 @@ void CReactiveTurbSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_con
       for(iVar = 0; iVar < nVar; ++iVar)
         Solution_i[iVar] = node[iPoint]->GetSolution(iVar);
 
-      Solution_j[0] = kine_Inf;
-      Solution_j[1] = omega_Inf;
+      Solution_j[CReactiveTurbVariable::TURB_KINE_INDEX] = kine_Inf;
+      Solution_j[CReactiveTurbVariable::TURB_OMEGA_INDEX] = omega_Inf;
 
       conv_numerics->SetTurbVar(Solution_i, Solution_j);
 
@@ -496,7 +519,7 @@ void CReactiveTurbSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_con
       LinSysRes.AddBlock(iPoint, Residual);
       Jacobian.AddBlock(iPoint, iPoint, Jacobian_i);
     }
-  }
+  } /*--- End of iVertex for loop ---*/
 }
 
 //
@@ -539,8 +562,8 @@ void CReactiveTurbSolver::BC_Inlet(CGeometry* geometry, CSolver** solver_contain
       for(iVar = 0; iVar < nVar; iVar++)
         Solution_i[iVar] = node[iPoint]->GetSolution(iVar);
 
-      Solution_j[0]= kine_Inf;
-      Solution_j[1]= omega_Inf;
+      Solution_j[CReactiveTurbVariable::TURB_KINE_INDEX]= kine_Inf;
+      Solution_j[CReactiveTurbVariable::TURB_OMEGA_INDEX]= omega_Inf;
 
       conv_numerics->SetTurbVar(Solution_i, Solution_j);
 

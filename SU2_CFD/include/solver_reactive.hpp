@@ -8,13 +8,11 @@
  *  \brief Main class for defining a solver for chemically reacting inviscid flows.
  *  \author G. Orlando.
  */
-class CReactiveEulerSolver:public CSolver {
+class CReactiveEulerSolver: public CSolver {
 public:
-
   using RealVec = CReactiveEulerVariable::RealVec;
-  using RealMatrix = CReactiveEulerVariable::RealMatrix;
+  using RealMatrix = CReactiveNSVariable::RealMatrix;
   using LibraryPtr = CReactiveEulerVariable::LibraryPtr;
-  using SmartArr = CReactiveEulerVariable::SmartArr;
 
 protected:
   static LibraryPtr library; /*!< \brief Smart pointer to the library that computes physical-chemical properties. */
@@ -42,10 +40,20 @@ protected:
   RealVec   Velocity_Inf,  /*!< \brief Free stream flow velocity. */
             MassFrac_Inf;  /*!< \brief Free stream species mass fraction. */
 
-  RealVec   Sol_i,  /*!< \brief Auxiliary vector for storing the solution at point i. */
-            Sol_j,      /*!< \brief Auxiliary vector for storing the solution at point j. */
-            Primitive_i,        /*!< \brief Auxiliary nPrimVar vector for storing the primitive at point i. */
-            Primitive_j;        /*!< \brief Auxiliary nPrimVar vector for storing the primitive at point j. */
+  RealVec   PrimVar_i,  /*!< \brief Auxiliary nPrimVarGrad vector for storing primitive at point i. */
+            PrimVar_j,  /*!< \brief Auxiliary nPrimVarGrad vector for storing primitive at point j. */
+            PrimVar_Vertex,  /*!< \brief Auxiliary nPrimVarGrad vector for storing primitive at boundary node. */
+            PrimVar_Average,  /*!< \brief Auxiliary nPrimVarGrad vector for storing average of primitive.. */
+            Partial_Res;  /*!< \brief Auxiliary nPrimVarGrad vector. */
+
+  RealVec   Prim_i, /*!< \brief Auxiliary nPrimVarLim vector for storing primitive at point i. */
+            Prim_j, /*!< \brief Auxiliary nPrimVarLim vector for storing primitive at point j. */
+            Primitive; /*!< \brief Auxiliary nPrimVarLim vector for storing primitive at boundary node. */
+
+  RealMatrix C_Mat,S_Mat; /*!< \brief Auxiliary matrices for least squares computation. */
+
+  RealVec Ys_i,Ys_j;  /*!< \brief Auxiliary vectors to store mass fractions at node i and j. */
+  RealVec Ys;         /*!< \brief Auxiliary vector to store mass fractions. */
 
 public:
 
@@ -67,13 +75,13 @@ public:
 	virtual ~CReactiveEulerSolver() {}
 
   /*!
-  * \brief Set the simulation to explicit
-  */
+   * \brief Set the simulation to explicit
+   */
   inline void SetExplicit(void) {
     implicit = false;
   }
 
-   /*!
+  /*!
  	 * \brief Looking for non physical points in the initial solution
  	 * \param[in] config - Definition of the particular problem.
  	 */
@@ -85,7 +93,7 @@ public:
 	 * \param[in] config - Definition of the particular problem.
    * \param[in] val_filename - Name of the file for the restart
 	 */
-  void Read_Restart(CGeometry* geometry, CConfig* config, std::string val_filename);
+  void Load_Restart(CGeometry* geometry, CConfig* config, std::string val_filename);
 
   /*!
    * \brief Set primitive variables in each point reporting non physical data
@@ -94,7 +102,7 @@ public:
    * \param[in] Output - boolean to determine whether to print output.
    * \return - The number of non-physical points.
    */
-  unsigned long SetPrimitive_Variables(CSolver **solver_container, CConfig *config, bool Output) override;
+  unsigned long SetPrimitive_Variables(CSolver** solver_container, CConfig* config, bool Output) override;
 
   /*!
    * \brief Set gradient primitive variables static const unsigned Green Gauss.
@@ -213,6 +221,12 @@ public:
                         CConfig* config, unsigned short iMesh) override;
 
    /*!
+    * \brief Set the free-stream solution all over the domain.
+    * \param[in] config - Definition of the particular problem.
+    */
+    void SetFreeStream_Solution(CConfig* config) override;
+
+   /*!
     * \brief Impose via the residual the Euler wall boundary condition.
     * \param[in] geometry - Geometrical definition of the problem.
     * \param[in] solver_container - Container vector with all the solutions.
@@ -328,7 +342,6 @@ public:
     * \param[in] config - Definition of the particular problem.
     */
    void ImplicitEuler_Iteration(CGeometry* geometry, CSolver** solver_container, CConfig* config) override;
-
 };
 
 /*! \class CReactiveNSSolver
@@ -394,6 +407,15 @@ public:
                       unsigned short RunTime_EqSystem, bool Output) override;
 
   /*!
+   * \brief Set primitive variables in each point reporting non physical data
+   * \param[in] solver_container - Container vector with all the solutions.
+   * \param[in] config - Definition of the particular problem.
+   * \param[in] Output - boolean to determine whether to print output.
+   * \return - The number of non-physical points.
+   */
+  unsigned long SetPrimitive_Variables(CSolver** solver_container, CConfig* config, bool Output) override;
+
+  /*!
    * \brief Compute the time step for solving the Navier-Stokes equations.
    * \param[in] geometry - Geometrical definition of the problem.
    * \param[in] solver_container - Container vector with all the solutions.
@@ -438,7 +460,6 @@ public:
    */
   void BC_Isothermal_Wall(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics,
                           CNumerics* visc_numerics, CConfig* config,unsigned short val_marker) override;
-
 };
 
 #endif

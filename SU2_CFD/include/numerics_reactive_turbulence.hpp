@@ -2,8 +2,6 @@
 #define SU2_NUMERICS_REACTIVE_TURBULENCE
 
 #include "numerics_structure.hpp"
-#include "../../Common/include/datatypes/vectorT.hpp"
-#include "../../Common/include/datatypes/matrixT.hpp"
 
 /*!
  * \class CUpwReactiveTurb
@@ -11,21 +9,26 @@
  * \author G.Orlando
  */
 class CUpwReactiveTurb: public CNumerics {
-protected:
+public:
+  typedef std::vector<su2double> RealVec;
 
+protected:
   bool implicit, /*!< \brief True if euler implicit scheme used. */
        grid_movement; /*!< \brief True if grid movement is used. */
-  unsigned short nSpecies; /*!< \brief Number of species. */
+
+  unsigned short nSpecies;  /*!< \brief Number of species. */
+
+  RealVec Velocity_i, /*!< \brief Velocity at node i. */
+          Velocity_j; /*!< \brief Velcoity at node j. */
 
 public:
-
   /*!
    * \brief Constructor of the class.
    * \param[in] val_nDim - Number of dimensions of the problem.
    * \param[in] val_nVar - Number of variables of the problem.
    * \param[in] config - Definition of the particular problem.
    */
-  CUpwReactiveTurb(unsigned short val_nDim, unsigned short val_nVar, CConfig *config);
+  CUpwReactiveTurb(unsigned short val_nDim, unsigned short val_nVar, CConfig* config);
 
   /*!
    * \brief Destructor of the class.
@@ -49,8 +52,7 @@ public:
    */
   void ComputeResidual(su2double* val_residual, su2double** val_Jacobian_i, su2double** val_Jacobian_j, CConfig* config) override;
 };
-//
-//
+
 
 /*!
  * \class CAvgGrad_ReactiveTurb
@@ -59,16 +61,17 @@ public:
  */
 class CAvgGrad_ReactiveTurb: public CNumerics {
 public:
-  using RealVec = Common::RealVec;
-  using RealMatrix = Common::RealMatrix;
+  typedef std::vector<su2double> RealVec;
+  typedef su2double** SU2Matrix;
 
 protected:
   bool implicit;                        /*!< \brief True if euler implicit scheme used. */
   unsigned short nSpecies;              /*!< \brief Number of species. */
 
   RealVec Edge_Vector;                  /*!< \brief Vector from node i to node j. */
-  RealMatrix Mean_GradTurbVar;          /*!< \brief Average of gradients at cell face */
-  RealVec Proj_Mean_GradTurbVar_Normal; /*!< \brief Mean_gradTurbVar DOT normal */
+
+  SU2Matrix Mean_GradTurbVar;              /*!< \brief Average of gradients at cell face */
+  RealVec Proj_Mean_GradTurbVar_Normal;   /*!< \brief Mean_gradTurbVar DOT normal */
 
 public:
   /*!
@@ -77,12 +80,12 @@ public:
    * \param[in] val_nVar - Number of variables of the problem.
    * \param[in] config - Definition of the particular problem.
    */
-  CAvgGrad_ReactiveTurb(unsigned short val_nDim, unsigned short val_nVar, CConfig *config);
+  CAvgGrad_ReactiveTurb(unsigned short val_nDim, unsigned short val_nVar, CConfig* config);
 
   /*!
    * \brief Destructor of the class.
    */
-  ~CAvgGrad_ReactiveTurb() {}
+  ~CAvgGrad_ReactiveTurb();
 
   /*!
    * \brief Set number of species.
@@ -102,20 +105,16 @@ public:
   void ComputeResidual(su2double* val_residual, su2double** Jacobian_i, su2double** Jacobian_j, CConfig* config) override;
 };
 
+
 /*!
  * \class CSourcePieceWise_ReactiveTurb
  * \brief Class for integrating the source terms of the k-\omega turbulence model equations.
  * \author G.Orlando
  */
 class CSourcePieceWise_ReactiveTurb: public CNumerics {
-public:
-  using RealMatrix = Common::RealMatrix;
-
 protected:
   bool implicit;                        /*!< \brief True if euler implicit scheme used. */
   unsigned short nSpecies;              /*!< \brief Number of species. */
-
-  //RealMatrix Velocity_Grad;          /*!< \brief Velocity gradient */
 
 public:
   /*!
@@ -124,7 +123,7 @@ public:
    * \param[in] val_nVar - Number of variables of the problem.
    * \param[in] config - Definition of the particular problem.
    */
-  CSourcePieceWise_ReactiveTurb(unsigned short val_nDim, unsigned short val_nVar, CConfig *config);
+  CSourcePieceWise_ReactiveTurb(unsigned short val_nDim, unsigned short val_nVar, CConfig* config);
 
   /*!
    * \brief Destructor of the class.
@@ -148,6 +147,5 @@ public:
    */
   void ComputeResidual(su2double* val_residual, su2double** val_Jacobian_i, su2double** val_Jacobian_j, CConfig* config) override;
 };
-
 
 #endif

@@ -3,38 +3,35 @@
 
 #include "variable_structure.hpp"
 #include "../../Common/include/physical_property_library.hpp"
-#include "../../Common/include/datatypes/vectorT.hpp"
-#include "../../Common/include/datatypes/matrixT.hpp"
 #include "../../Common/include/su2_assert.hpp"
 
-#include <memory>
+#include <Eigen/Dense>
+#include <numeric>
 
 /*! \class CReactiveEulerVariable
  *  \brief Main class for defining a variable for chemically reacting inviscid flows.
  *  \author G. Orlando.
  */
-
-class CReactiveEulerVariable:public CVariable {
+class CReactiveEulerVariable: public CVariable {
 public:
-
-  using RealVec = Common::RealVec;
-  using RealMatrix = Common::RealMatrix;
+  typedef std::vector<su2double> RealVec;
+  typedef su2double** SU2Matrix;
   typedef std::shared_ptr<Framework::PhysicalPropertyLibrary> LibraryPtr;
-  typedef std::unique_ptr<su2double[]> SmartArr;
 
 protected:
-
   static LibraryPtr library; /*!< \brief Smart pointer to the library that computes physical-chemical properties. */
 
   static unsigned short nSpecies; /*!< \brief Number of species in the mixture. */
   unsigned short nPrimVarLim; /*!< \brief Number of primitive variables to limit in the problem. */
 
   /*--- Primitive variable definition ---*/
-  RealVec    Primitive; /*!< \brief Primitive variables (T,vx,vy,vz,P,rho,h,a,rho1,...rhoNs) in compressible flows. */
-  RealMatrix Gradient_Primitive; /*!< \brief Gradient of the primitive variables (T, vx, vy, vz, P, rho). */
+  RealVec    Primitive; /*!< \brief Primitive variables (T,vx,vy,vz,P,rho,h,a,Y1,...YNs) in compressible flows. */
+  SU2Matrix  Gradient_Primitive; /*!< \brief Gradient of the primitive variables (T, vx, vy, vz, P, rho). */
   RealVec    Limiter_Primitive;    /*!< \brief Limiter of the primitive variables (T, vx, vy, vz, P, rho). */
   RealVec    dPdU;                 /*!< \brief Partial derivative of pressure w.r.t. conserved variables. */
   RealVec    dTdU;                /*!< \brief Partial derivative of temperature w.r.t. conserved variables. */
+
+  RealVec Ys;               /*!< \brief Auxiliary vector to store mass fractions separately. */
 
 public:
 
@@ -63,6 +60,13 @@ public:
   static constexpr unsigned short T_INDEX_GRAD = 0;
   static constexpr unsigned short VX_INDEX_GRAD = 1;
   static const unsigned short P_INDEX_GRAD;
+
+  /**
+   * Mapping between the primitivelimited variable name and its position in the physical data
+   */
+  static constexpr unsigned short T_INDEX_LIM = 0;
+  static constexpr unsigned short VX_INDEX_LIM = 1;
+  static const unsigned short P_INDEX_LIM;
 
   /*!
 	 * \brief Default constructor of the class.
@@ -95,9 +99,10 @@ public:
    * \param[in] val_nprimvarlim - Number of primitive variables to limit in the problem.
    * \param[in] config - Definition of the particular problem.
 	 */
-	CReactiveEulerVariable(const su2double val_pressure, const RealVec& val_massfrac, const RealVec& val_velocity, const su2double val_temperature,
-                         unsigned short val_nDim, unsigned short val_nvar, unsigned short val_nSpecies, unsigned short val_nprimvar,
-                         unsigned short val_nprimvargrad, unsigned short val_nprimvarlim, CConfig* config);
+	CReactiveEulerVariable(const su2double val_pressure, const RealVec& val_massfrac, const RealVec& val_velocity,
+                         const su2double val_temperature, unsigned short val_nDim, unsigned short val_nvar,
+                         unsigned short val_nSpecies, unsigned short val_nprimvar, unsigned short val_nprimvargrad,
+                         unsigned short val_nprimvarlim, CConfig* config);
 
 	/*!
 	 * \overload Class constructor
@@ -116,7 +121,7 @@ public:
   /*!
 	 * \brief Destructor of the class.
 	 */
-	virtual ~CReactiveEulerVariable() {}
+	virtual ~CReactiveEulerVariable();
 
   /*!
    * \brief Get the number of dimensions of the problem.
@@ -175,7 +180,7 @@ public:
    * \return Set the value of the primitive variable for the index <i>val_var</i>.
    */
   inline void SetPrimitive(su2double* val_prim) override {
-    SU2_Assert(val_prim != NULL, "The arrat of primitive variables has not been allocated");
+    SU2_Assert(val_prim != NULL, "The array of primitive variables has not been allocated");
     std::copy(val_prim,val_prim + nPrimVar,Primitive.begin());
   }
 
@@ -207,14 +212,21 @@ public:
 	 * \brief Set to zero the gradient of the primitive variables.
 	 */
 	inline void SetGradient_PrimitiveZero(unsigned short val_primvar) override {
-    std::fill(Gradient_Primitive.begin(),Gradient_Primitive.end(),0.0);
+    SU2_Assert(Gradient_Primitive != NULL, "The matrix for gradient primitive has not been allocated");
+    for(unsigned short iVar = 0; iVar < val_primvar; ++iVar) {
+      SU2_Assert(Gradient_Primitive[iVar] != NULL,
+                 std::string("The row " + std::to_string(iVar) + " of gradient primitive has not been allocated"));
+      std::fill(Gradient_Primitive[iVar], Gradient_Primitive[iVar] + nDim, 0.0);
+    }
   }
 
   /*!
    * \brief Get the value of the primitive variables gradient.
    * \return Value of the primitive variables gradient.
    */
-  su2double** GetGradient_Primitive(void) override;
+  inline su2double** GetGradient_Primitive(void) override {
+    return Gradient_Primitive;
+  }
 
   /*!
    * \brief Get the value of the primitive variables gradient.
@@ -223,7 +235,9 @@ public:
 	 * \param[in] val_dim - Index of the dimension.
    */
   su2double GetGradient_Primitive(unsigned short val_var, unsigned short val_dim) override {
-    return Gradient_Primitive.at(val_var,val_dim);
+    SU2_Assert(Gradient_Primitive[val_var] != NULL,
+               std::string("The row " + std::to_string(val_var) + " of gradient primitive hasn't been allocated"));
+    return Gradient_Primitive[val_var][val_dim];
   }
 
   /*!
@@ -233,7 +247,9 @@ public:
 	 * \param[in] val_value - Value to add to the gradient of the selected primitive variable.
 	 */
 	inline void AddGradient_Primitive(unsigned short val_var, unsigned short val_dim, su2double val_value) override {
-    Gradient_Primitive.at(val_var,val_dim) += val_value;
+    SU2_Assert(Gradient_Primitive[val_var] != NULL,
+               std::string("The row " + std::to_string(val_var) + " of gradient primitive hasn't been allocated"));
+    Gradient_Primitive[val_var][val_dim] += val_value;
   }
 
   /*!
@@ -243,7 +259,9 @@ public:
 	 * \param[in] val_value - Value to subtract to the gradient of the selected primitive variable.
 	 */
 	inline void SubtractGradient_Primitive(unsigned short val_var, unsigned short val_dim, su2double val_value) override {
-    Gradient_Primitive.at(val_var,val_dim) -= val_value;
+    SU2_Assert(Gradient_Primitive[val_var] != NULL,
+               std::string("The row " + std::to_string(val_var) + " of gradient primitive hasn't been allocated"));
+    Gradient_Primitive[val_var][val_dim] -= val_value;
   }
 
   /*!
@@ -253,7 +271,9 @@ public:
 	 * \param[in] val_value - Value of the gradient.
 	 */
 	inline void SetGradient_Primitive(unsigned short val_var, unsigned short val_dim, su2double val_value) override {
-    Gradient_Primitive.at(val_var,val_dim) = val_value;
+    SU2_Assert(Gradient_Primitive[val_var] != NULL,
+               std::string("The row " + std::to_string(val_var) + " of gradient primitive hasn't been allocated"));
+    Gradient_Primitive[val_var][val_dim] = val_value;
   }
 
   /*!
@@ -268,7 +288,7 @@ public:
    * \param[in] U - Storage of conservative variables.
    * \param[in] V - Storage of primitive variables.
    */
-  bool Cons2PrimVar(CConfig *config, su2double* U, su2double* V);
+  bool Cons2PrimVar(CConfig* config, su2double* U, su2double* V);
 
   /*!
    * \brief Set all the conserved variables from primitive variables.
@@ -295,7 +315,7 @@ public:
 	bool SetSoundSpeed(CConfig* config) override;
 
 	/*!
-	 * \brief Set the value of the total enthalpy.
+	 * \brief Set the value of the total enthalpy (need a call of SetPressure()).
 	 */
 	inline void SetEnthalpy(void) override {
     SU2_Assert(Solution != NULL,"The array of solution variables has not been allocated");
@@ -321,14 +341,14 @@ public:
    */
   inline su2double* GetdPdU(void) override {
     return dPdU.data();
-  };
+  }
 
   /*!
    * \brief Set partial derivative of temperature w.r.t. density \f$\frac{\partial T}{\partial \rho_s}\f$
    */
   inline su2double* GetdTdU(void) override {
     return dTdU.data();
-  };
+  }
 
   /*!
    * \brief Get the flow pressure.
@@ -368,7 +388,7 @@ public:
    * \return Value of the mass fraction of species s.
    */
   inline su2double GetMassFraction(unsigned short val_Species) override {
-    return Primitive.at(RHOS_INDEX_PRIM + val_Species)/Primitive.at(RHO_INDEX_PRIM);
+    return Primitive.at(RHOS_INDEX_PRIM + val_Species);
   }
 
   /*!
@@ -377,13 +397,12 @@ public:
    * \return Value of the mass fraction of species s.
    */
   inline RealVec GetMassFractions(void) const {
-    return RealVec(Primitive.cbegin() + RHOS_INDEX_PRIM, Primitive.cbegin() + RHOS_INDEX_PRIM + nSpecies);
+    return RealVec(Primitive.cbegin() + RHOS_INDEX_PRIM, Primitive.cbegin() + (RHOS_INDEX_PRIM + nSpecies));
   }
 
-
   /*!
-   * \brief Get the energy of the flow.
-   * \return Value of the energy of the flow.
+   * \brief Get the total energy of the flow.
+   * \return Value of the total energy of the flow.
    */
   inline su2double GetEnergy(void) override {
     SU2_Assert(Solution != NULL,"The array with the solution has not been allocated");
@@ -396,16 +415,17 @@ public:
    */
   inline su2double GetTemperature(void) override {
     return Primitive.at(T_INDEX_PRIM);
-  };
+  }
 
   /*!
-   * \brief Sets the temperature of the flow.
+   * \brief Set the temperature of the flow.
    * \return Value of the temperature of the flow.
    */
   inline bool SetTemperature(su2double val_T) override {
     Primitive.at(T_INDEX_PRIM) = val_T;
     if(val_T < EPS)
       return true;
+
     return false;
   }
 
@@ -425,7 +445,7 @@ public:
    */
   inline su2double GetProjVel(su2double* val_vector) override {
     SU2_Assert(val_vector != NULL, "The vector where to project velocity has not been allocated");
-    return std::inner_product(Primitive.cbegin() + VX_INDEX_PRIM, Primitive.cbegin() + VX_INDEX_PRIM + nDim, val_vector, 0.0);
+    return std::inner_product(Primitive.cbegin() + VX_INDEX_PRIM, Primitive.cbegin() + (VX_INDEX_PRIM + nDim), val_vector, 0.0);
   }
 
   /*!
@@ -433,7 +453,6 @@ public:
    * \param[in] val_velocity - Pointer to the velocity.
    */
   void SetVelocity_Old(su2double* val_velocity) override;
-
 };
 const unsigned short CReactiveEulerVariable::P_INDEX_PRIM = CReactiveEulerVariable::VX_INDEX_PRIM + CReactiveEulerVariable::nDim;
 const unsigned short CReactiveEulerVariable::RHO_INDEX_PRIM = CReactiveEulerVariable::P_INDEX_PRIM + 1;
@@ -446,25 +465,31 @@ const unsigned short CReactiveEulerVariable::RHOS_INDEX_SOL = CReactiveEulerVari
 
 const unsigned short CReactiveEulerVariable::P_INDEX_GRAD = CReactiveEulerVariable::VX_INDEX_GRAD + CReactiveEulerVariable::nDim;
 
+const unsigned short CReactiveEulerVariable::P_INDEX_LIM = CReactiveEulerVariable::VX_INDEX_LIM + CReactiveEulerVariable::nDim;
 
 /*! \class CReactiveNSVariable
  *  \brief Main class for defining a variable for chemically reacting viscous flows.
  *  \author G. Orlando.
  */
-class CReactiveNSVariable:public CReactiveEulerVariable {
+class CReactiveNSVariable: public CReactiveEulerVariable {
+public:
+  typedef Eigen::Matrix<su2double,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor> RealMatrix;
+
 protected:
-	RealMatrix Diffusion_Coeffs;    /*!< \brief Diffusion coefficients of the mixture. */
+	RealMatrix Diffusion_Coeffs;    /*!< \brief Binary diffusion coefficients of the mixture. */
   su2double  Laminar_Viscosity;	/*!< \brief Viscosity of the fluid. */
   su2double  Thermal_Conductivity;   /*!< \brief Thermal conductivity of the gas mixture. */
+  su2double  Eddy_Viscosity;	/*!< \brief Eddy Viscosity. */
+  std::array<su2double,3> Vorticity;    /*!< \brief Vorticity of the fluid. */
+  su2double  StrainMag;       /*!< \brief Magnitude of rate of strain tensor. */
 
 public:
-
   static const unsigned short RHOS_INDEX_GRAD;
 
   /*!
 	 * \brief Default constructor of the class.
 	 */
-  CReactiveNSVariable(): CReactiveEulerVariable(),Laminar_Viscosity(),Thermal_Conductivity() {}
+  CReactiveNSVariable():CReactiveEulerVariable(),Laminar_Viscosity(),Thermal_Conductivity(),Eddy_Viscosity(),Vorticity(),StrainMag() {}
 
   /*!
    * \overloaded Class constructor
@@ -497,7 +522,7 @@ public:
                       unsigned short val_nprimvargrad,unsigned short val_nprimvarlim, CConfig* config);
 
   /*!
-	 * \overload Class constructors
+	 * \overload Class constructor
 	 * \param[in] val_solution - Pointer to the flow value (initialization value).
 	 * \param[in] val_nDim - Number of dimensions of the problem.
 	 * \param[in] val_nvar - Number of conserved variables.
@@ -564,13 +589,57 @@ public:
   }
 
   /*!
-  	 * \brief Set the temperature at the wall
-     * \param[in] temperature_wall - value of the wall temperature to set
-  	 */
+   * \brief Set the temperature at the wall
+   * \param[in] temperature_wall - value of the wall temperature to set
+   */
 	inline void SetWallTemperature(su2double temperature_wall) override {
     Primitive.at(T_INDEX_PRIM) = temperature_wall;
   }
 
+  /*!
+   * \brief Get the eddy viscosity.
+   * \return Eddy viscoisty
+   */
+  inline su2double GetEddyViscosity(void) override {
+    return Eddy_Viscosity;
+  }
+
+  /*!
+   * \brief Set the eddy viscosity.
+   * \param[in] eddy_visc - value of eddy viscosity to set
+   */
+  inline void SetEddyViscosity(su2double eddy_visc) override {
+    Eddy_Viscosity = eddy_visc;
+  }
+
+  /*!
+   * \brief Set all the primitive variables form conserved variables.
+   * \param[in] config - Configuration of the particular problem.
+   * \param[in] U - Storage of conservative variables.
+   * \param[in] V - Storage of primitive variables.
+   * \param[in] turb_ke - Turbulent kinetic energy
+   */
+  bool Cons2PrimVar(CConfig* config, su2double* U, su2double* V, su2double turb_ke);
+
+  /*!
+   * \brief Set all the primitive variables for compressible flows.
+   * \param[in] eddy_visc - Eddy viscosity
+   * \param[in] turb_ke - Turbulent kinetic energy
+   * \param[in] config - Configuration of the particular problem.
+   */
+  bool SetPrimVar(su2double eddy_visc, su2double turb_ke, CConfig* config) override;
+
+  /*!
+   * \brief Set the vorticity.
+   * \param[in] val_limiter - flag for limiter
+   */
+  inline bool SetVorticity(bool val_limiter) override;
+
+  /*!
+   * \brief Set the strain magnitude.
+   * \param[in] val_limiter - flag for limiter
+   */
+  inline bool SetStrainMag(bool val_limiter) override;
 };
 const unsigned short CReactiveNSVariable::RHOS_INDEX_GRAD = CReactiveNSVariable::P_INDEX_GRAD + 1;
 
