@@ -51,8 +51,8 @@ CUpwReactiveAUSM::CUpwReactiveAUSM(unsigned short val_nDim, unsigned short val_n
 void CUpwReactiveAUSM::ComputeResidual(su2double* val_residual, su2double** val_Jacobian_i,
                                        su2double** val_Jacobian_j, CConfig* config) {
   //AD::StartPreacc();
-  //AD::SetPreaccIn(V_i, nSpecies + nDim+2);
-  //AD::SetPreaccIn(V_j, nSpecies + nDim+2);
+  //AD::SetPreaccIn(V_i, nSpecies + nDim + 5);
+  //AD::SetPreaccIn(V_j, nSpecies + nDim + 5);
   //AD::SetPreaccIn(Normal, nDim);
 
   SU2_Assert(val_residual != NULL,"The array of residual for convective flux has not been allocated");
@@ -337,7 +337,7 @@ void CAvgGradReactive_Flow::GetViscousProjFlux(const RealVec& val_primvar, const
     /*--- Shear stress related terms ---*/
     Flux_Tensor[CReactiveNSVariable::RHOE_INDEX_SOL][iDim] = 0.0;
     for(jDim = 0; jDim < nDim; ++jDim) {
-      Flux_Tensor[CReactiveNSVariable::RHOVX_INDEX_SOL + jDim][iDim]  = tau[iDim][jDim];
+      Flux_Tensor[CReactiveNSVariable::RHOVX_INDEX_SOL + jDim][iDim] = tau[iDim][jDim];
       Flux_Tensor[CReactiveNSVariable::RHOE_INDEX_SOL][iDim] += tau[iDim][jDim]*V[CReactiveNSVariable::VX_INDEX_PRIM+jDim];
     }
 

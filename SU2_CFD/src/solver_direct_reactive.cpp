@@ -456,7 +456,7 @@ unsigned long CReactiveEulerSolver::SetPrimitive_Variables(CSolver **solver_cont
   unsigned long iPoint, ErrorCounter = 0;
   bool RightSol = true;
 
-  for(iPoint = 0; iPoint < nPoint; iPoint ++) {
+  for(iPoint = 0; iPoint < nPoint; ++iPoint) {
     /*--- Initialize the non-physical points vector ---*/
     node[iPoint]->SetNon_Physical(false);
 

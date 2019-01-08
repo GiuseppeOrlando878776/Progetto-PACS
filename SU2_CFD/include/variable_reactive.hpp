@@ -1,13 +1,13 @@
 #ifndef SU2_VARIABLE_REACTIVE
 #define SU2_VARIABLE_REACTIVE
 
-#include <memory>
-
 #include "variable_structure.hpp"
 #include "../../Common/include/physical_property_library.hpp"
 #include "../../Common/include/datatypes/vectorT.hpp"
 #include "../../Common/include/datatypes/matrixT.hpp"
 #include "../../Common/include/su2_assert.hpp"
+
+#include <memory>
 
 /*! \class CReactiveEulerVariable
  *  \brief Main class for defining a variable for chemically reacting inviscid flows.
