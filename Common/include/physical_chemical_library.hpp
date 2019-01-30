@@ -2,12 +2,12 @@
 #define SU2_PHYSICAL_CHEMICAL_LIBRARY
 
 #include "physical_property_library.hpp"
-#include "datatypes/matrixT.hpp"
+#include "../externals/Eigen/Dense"
 
 namespace Framework  {
 
   typedef std::vector<double> RealVec;
-  using RealMatrix = Common::RealMatrix;
+  using RealMatrix = Eigen::MatrixXd;
 
   /*!
     * /brief Provides an abstract interface for libraries that compute the physical properties.
@@ -303,7 +303,7 @@ namespace Framework  {
 
     static constexpr double KB = 1.3806488*1e-23; /*!< \brief Boltzmann constant. */
 
-    static constexpr double R_ungas = 8.31446215*1e3; /*!< \brief Universal constant of perfect gas. (J/kmol*K) */
+    static constexpr double R_ungas = NA*KB*1e3; /*!< \brief Universal constant of perfect gas. (J/kmol*K) */
 
     static constexpr double R_ungas_scal = 1.9858775; /*!< \brief Universal gas constant in cal/(mol K). */
 
