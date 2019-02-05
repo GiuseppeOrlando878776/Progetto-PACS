@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <numeric>
 
 namespace Framework {
 
@@ -16,8 +17,8 @@ namespace Framework {
   void ReactingModelLibrary::SetRiGas(void) {
     Ri.clear();
     Ri.reserve(nSpecies);
-    for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      Ri.push_back(R_ungas/mMasses[iSpecies]);
+    for(const auto& mass: mMasses)
+      Ri.emplace_back(R_ungas/mass);
   }
 
   //
@@ -45,7 +46,7 @@ namespace Framework {
 
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
       if(Xs[iSpecies] < 0.0)
-        Xs[iSpecies] = 1E-20;
+        Xs[iSpecies] = 1e-16;
 
       SU2_Assert(Xs[iSpecies]<=1.0, std::string("The molar fraction of species number " + std::to_string(iSpecies) + "is greater than 1"));
     }
@@ -60,7 +61,7 @@ namespace Framework {
 
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
       if(Ys[iSpecies] < 0.0)
-        Ys[iSpecies] = 1E-20;
+        Ys[iSpecies] = 1e-16;
 
       SU2_Assert(Ys[iSpecies]<=1.0,std::string("The mass fraction of species number " + std::to_string(iSpecies) + "is greater than 1"));
     }
@@ -77,8 +78,7 @@ namespace Framework {
       Xs[iSpecies] = Ys[iSpecies]/mMasses[iSpecies];
 
     double massTot = std::accumulate(Ys.cbegin(),Ys.cend(),0.0)/std::accumulate(Xs.cbegin(),Xs.cend(),0.0);
-    for(iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      Xs[iSpecies] *= massTot;
+    std::transform(Xs.begin(),Xs.end(),Xs.begin(),std::bind1st(std::multiplies<double>(),massTot));
   }
 
   //
@@ -101,8 +101,7 @@ namespace Framework {
 
 
     double massTot = std::accumulate(Xs.cbegin(),Xs.cend(),0.0)/std::accumulate(Ys.cbegin(),Ys.cend(),0.0);
-    for(iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      Ys[iSpecies] *= massTot;
+    std::transform(Ys.begin(),Ys.end(),Ys.begin(),std::bind1st(std::multiplies<double>(),massTot));
   }
 
   //
@@ -178,7 +177,7 @@ namespace Framework {
   //
   //
   /* This function computes density,internal energy and static enthalpy at given temperature and pressure */
-  inline void ReactingModelLibrary::Density_Enthalpy_Energy(const double temp, const double pressure, const Vec& ys, RealVec& dhe) {
+  inline void ReactingModelLibrary::Density_Enthalpy_Energy(const double temp, const double pressure, const RealVec& ys, RealVec& dhe) {
     dhe.resize(3);
     dhe[0] = ComputeDensity(temp,pressure,ys);
     dhe[1] = ComputeEnthalpy(temp,ys);
@@ -190,8 +189,8 @@ namespace Framework {
   /* This function computes the static enthalpy for each species */
   RealVec ReactingModelLibrary::ComputePartialEnthalpy(const double temp) {
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      Enthalpies[iSpecies] = MathTools::GetSpline(*std::get<0>(Enth_Spline[iSpecies]),std::get<1>(Enth_Spline[iSpecies]),
-                                                   std::get<2>(Enth_Spline[iSpecies]),temp)/mMasses[iSpecies];
+      Enthalpies[iSpecies] = MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Enth_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Enth_Spline[iSpecies]),
+                                                   std::get<Y_DATA_SPLINE>(Enth_Spline[iSpecies]),temp)/mMasses[iSpecies];
 
     return Enthalpies;
   }
@@ -201,8 +200,8 @@ namespace Framework {
   /* This function computes the static enthalpy of the mixture  */
   double ReactingModelLibrary::ComputeEnthalpy(const double temp, const RealVec& ys) {
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      Enthalpies[iSpecies] = MathTools::GetSpline(*std::get<0>(Enth_Spline[iSpecies]),std::get<1>(Enth_Spline[iSpecies]),
-                                                   std::get<2>(Enth_Spline[iSpecies]),temp)/mMasses[iSpecies];
+      Enthalpies[iSpecies] = MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Enth_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Enth_Spline[iSpecies]),
+                                                   std::get<Y_DATA_SPLINE>(Enth_Spline[iSpecies]),temp)/mMasses[iSpecies];
 
     SetMassFractions(ys);
     return std::inner_product(Ys.cbegin(),Ys.cend(),Enthalpies.cbegin(),0.0);
@@ -214,8 +213,8 @@ namespace Framework {
   /* This function computes the specific heat at constant pressure */
   double ReactingModelLibrary::ComputeCP(const double temp, const RealVec& ys) {
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      CPs[iSpecies] = MathTools::GetSpline(*std::get<0>(Cp_Spline[iSpecies]),std::get<1>(Cp_Spline[iSpecies]),
-                                            std::get<2>(Cp_Spline[iSpecies]),temp)/mMasses[iSpecies];
+      CPs[iSpecies] = MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Cp_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Cp_Spline[iSpecies]),
+                                            std::get<Y_DATA_SPLINE>(Cp_Spline[iSpecies]),temp)/mMasses[iSpecies];
 
     SetMassFractions(ys);
     return std::inner_product(Ys.cbegin(),Ys.cend(),CPs.cbegin(),0.0);
@@ -229,8 +228,8 @@ namespace Framework {
     SU2_Assert(Viscosities.size() == nSpecies,"The dimension of Viscosities doesn't match nSpecies");
 
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      Viscosities[iSpecies] = MathTools::GetSpline(*std::get<0>(Mu_Spline[iSpecies]),std::get<1>(Mu_Spline[iSpecies]),
-                                                    std::get<2>(Mu_Spline[iSpecies]),temp);
+      Viscosities[iSpecies] = MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Mu_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Mu_Spline[iSpecies]),
+                                                    std::get<Y_DATA_SPLINE>(Mu_Spline[iSpecies]),temp);
   }
 
   //
@@ -242,10 +241,8 @@ namespace Framework {
 
     unsigned short iSpecies, jSpecies;
     double phi;
-    RealVec ys_over_mm;
-    ys_over_mm.reserve(nSpecies);
     for(iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      ys_over_mm.push_back(ys[iSpecies]/mMasses[iSpecies]);
+      ys_over_mm[iSpecies] = ys[iSpecies]/mMasses[iSpecies];
 
     /*--- Mixture viscosity calculation as sum weighted over PHI ---*/
     double Viscosity_Mixture = 0.0;
@@ -269,14 +266,15 @@ namespace Framework {
     SU2_Assert(Thermal_Conductivities.size() == nSpecies,"The dimension of Thermal_Conductivities doesn't match nSpecies");
 
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      Thermal_Conductivities[iSpecies] = MathTools::GetSpline(*std::get<0>(Kappa_Spline[iSpecies]),std::get<1>(Kappa_Spline[iSpecies]),
-                                                               std::get<2>(Kappa_Spline[iSpecies]),temp);
+      Thermal_Conductivities[iSpecies] = MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Kappa_Spline[iSpecies]),
+                                                               std::get<X_DATA_SPLINE>(Kappa_Spline[iSpecies]),
+                                                               std::get<Y_DATA_SPLINE>(Kappa_Spline[iSpecies]),temp);
   }
 
   //
   //
   /*--- Computing thermal conductivity of the mixtures---*/
-  double ReactingModelLibrary::ComputeLambda(const double temp, const Vec& ys) {
+  double ReactingModelLibrary::ComputeLambda(const double temp, const RealVec& ys) {
     ComputeConductivities(temp);
     ComputeViscosities(temp);
     SU2_Assert(ys.size() == nSpecies,"The dimension of ys doesn't match nSpecies");
@@ -284,10 +282,8 @@ namespace Framework {
     double Thermal_Conductivity_Mixture = 0.0;
     unsigned short iSpecies,jSpecies;
     double phi;
-    RealVec ys_over_mm;
-    ys_over_mm.reserve(nSpecies);
     for(iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      ys_over_mm.push_back(ys[iSpecies]/mMasses[iSpecies]);
+      ys_over_mm[iSpecies] = ys[iSpecies]/mMasses[iSpecies];
 
 
     for(iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
@@ -318,7 +314,7 @@ namespace Framework {
   //
   //
   /* This function computes the binary diffusion coefficients for Stefan-Maxwell diffusion with an empirical formula */
-  RealMatrix ReactingModelLibrary::GetDij_SM(const double temp, const double pressure) {
+  ReactingModelLibrary::RealMatrix ReactingModelLibrary::GetDij_SM(const double temp, const double pressure) {
     RealMatrix result(nSpecies,nSpecies);
     double Mij,diff_vol_i,molar_mass_i,diff_vol_j;
 
@@ -350,7 +346,7 @@ namespace Framework {
         if(iSpecies != jSpecies)
           tmp += Xs[jSpecies]/Dij(iSpecies,jSpecies);
       }
-      result.push_back((1.0 - Xs[iSpecies])/tmp);
+      result.emplace_back((1.0 - Xs[iSpecies])/tmp);
     }
     return result;
   }
@@ -370,7 +366,7 @@ namespace Framework {
   //
   //
   /* This function computes the equilibrium constants for a specific reaction */
-  std::pair<double,double> ReactingModelLibrary::GetKeq(const double temp,const unsigned short iReac) {
+  std::pair<double,double> ReactingModelLibrary::GetKeq(const double temp, const unsigned short iReac) {
     SU2_Assert(iReac < nReactions, "The index of reaction exceeds the number of reactions detected");
 
     double kf,kb;
@@ -384,9 +380,10 @@ namespace Framework {
       double dcoeff = Stoich_Coeffs_Products(iSpecies,iReac) - Stoich_Coeffs_Reactants(iSpecies,iReac);
       if(dcoeff != 0.0) {
         dG += dcoeff*
-              (MathTools::GetSpline(*std::get<0>(Enth_Spline[iSpecies]),std::get<1>(Enth_Spline[iSpecies]), std::get<2>(Enth_Spline[iSpecies]),temp) -
-               temp*
-               MathTools::GetSpline(*std::get<0>(Entr_Spline[iSpecies]),std::get<1>(Entr_Spline[iSpecies]), std::get<2>(Entr_Spline[iSpecies]),temp));
+              (MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Enth_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Enth_Spline[iSpecies]),
+                                     std::get<Y_DATA_SPLINE>(Enth_Spline[iSpecies]),temp) - temp*
+               MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Entr_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Entr_Spline[iSpecies]),
+                                     std::get<Y_DATA_SPLINE>(Entr_Spline[iSpecies]),temp));
         dnu += dcoeff;
       }
     }
@@ -399,7 +396,6 @@ namespace Framework {
     }
     else
       kb = kf/Keq;
-    }
 
     return std::make_pair(kf,kb);
   }
@@ -411,19 +407,19 @@ namespace Framework {
     SetConcentration(rho,ys);
     RealVec omega;
     omega.resize(nSpecies);
+    std::fill(omega.begin(),omega.end(),0.0);
 
     double kf_con,kb_con;
-    RealVec stoich_reac,stoich_prod,cs_exp,cs_prod;
-    auto cs = Eigen::Map<ArrayXd>(Cs.data(),Cs.size());
+    auto cs = Eigen::Map<Eigen::ArrayXd>(Cs.data(),Cs.size());
 
     for(unsigned iReac = 0; iReac < nReactions; ++iReac) {
-      Eigen::ArrayXd stoich_reac_exp = Stoich_Coeffs_ExpReactants.row(iReac);
-      auto cs_exp = cs.pow(stoich_reac_exp.array());
+      Eigen::ArrayXd stoich_reac_exp = Stoich_Coeffs_Reactants_Exp.row(iReac);
+      auto cs_exp = cs.pow(stoich_reac_exp);
       kf_con = cs_exp.prod();
-      Eigen::ArrayXd stoich_prod_exp = Stoich_Coeffs_ExpProducts.row(iReac);
-      auto cs_prod = cs.pow(stoich_prod_exp.array());
+      Eigen::ArrayXd stoich_prod_exp = Stoich_Coeffs_Products_Exp.row(iReac);
+      auto cs_prod = cs.pow(stoich_prod_exp);
       kb_con = cs_prod.prod();
-      auto Keq = GetKeq(iReac,temp,Stoich_Coeffs_Reactants,Stoich_Coeffs_Products,As,Ns,Eas,Elementary_Reactions,Enth_Spline,Entr_Spline);
+      auto Keq = GetKeq(iReac,temp);
       kf_con *= Keq.first;
       kb_con *= Keq.second;
       for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
@@ -500,6 +496,7 @@ namespace Framework {
         Enthalpies.resize(nSpecies);
         CPs.resize(nSpecies);
         Thermal_Conductivities.resize(nSpecies);
+        ys_over_mm.resize(nSpecies);
       }
       mixfile.close();
     }
@@ -521,10 +518,10 @@ namespace Framework {
     if(chemfile.is_open()) {
       std::set<std::string> Species_Reactions;
       /*--- Clear for safety ---*/
-      Stoich_Coeffs_Reactants.clear();
-      Stoich_Coeffs_Reactants.clear();
-      Stoich_Coeffs_Products_Exp.clear();
-      Stoich_Coeffs_Reactants_Exp.clear();
+      Stoich_Coeffs_Reactants.resize(0,0);
+      Stoich_Coeffs_Reactants.resize(0,0);
+      Stoich_Coeffs_Products_Exp.resize(0,0);
+      Stoich_Coeffs_Reactants_Exp.resize(0,0);
       Elementary_Reactions.clear();
       As.clear();
       Ns.clear();
@@ -588,20 +585,22 @@ namespace Framework {
     std::string reactants_side,products_side;
 
     if(is_elem) {
-      SU2_Assert(minor_pos+2==major_pos,"Incorrect symbol to detect reactions");
+      SU2_Assert(minor_pos + 2 == major_pos,"Incorrect symbol to detect reactions");
       SU2_Assert(line.find('<',minor_pos+1),"Already detected < symbol for reactions");
       reactants_side = line.substr(0,minor_pos);
     }
     else {
       auto bar_pos = line.find('-');
       SU2_Assert(bar_pos != std::string::npos,"No reaction in this line");
-      SU2_Assert(bar_pos+1 == major_pos,"Incorrect symbol to detect reactions");
+      SU2_Assert(bar_pos + 1 == major_pos,"Incorrect symbol to detect reactions");
       reactants_side = line.substr(0,bar_pos);
     }
     products_side = line.substr(major_pos + 1);
 
-    Utility::Parse_Terms(reactants_side,n_reac,Species_Names,Stoich_Coeffs_Reactants,Stoich_Coeffs_Reactants_Exp,Species_Reactions);
-    Utility::Parse_Terms(products_side,n_reac,Species_Names,Stoich_Coeffs_Products,Stoich_Coeffs_Products_Exp,Species_Reactions);
+    Utility::Parse_Terms(reactants_side,n_reac,is_elem,Species_Names,Stoich_Coeffs_Reactants,Stoich_Coeffs_Reactants_Exp,Species_Reactions);
+    Utility::Parse_Terms(products_side,n_reac,is_elem,Species_Names,Stoich_Coeffs_Products,Stoich_Coeffs_Products_Exp,Species_Reactions);
+
+    Utility::CompleteBackwardRate(reactants_side,n_reac,is_elem,Species_Names,Stoich_Coeffs_Reactants,Stoich_Coeffs_Products);
   }
 
   //
@@ -628,11 +627,12 @@ namespace Framework {
   void ReactingModelLibrary::ReadDataTransp(const std::string& f_name) {
     std::string line;
     unsigned n_line = 0;
+    std::string curr_species;
     unsigned short iSpecies;
     double curr_temp,curr_visc,curr_cond;
     std::shared_ptr<RealVec> temp_data(new RealVec());
     RealVec mu_data,kappa_data;
-    *temp_data.reserve(nSpecies);
+    (*temp_data).reserve(nSpecies);
     mu_data.reserve(nSpecies);
     kappa_data.reserve(nSpecies);
 
@@ -647,6 +647,7 @@ namespace Framework {
             SU2_Assert(std::isalpha(line[0]),"You have to specify the species");
             auto it = Species_Names.find(line);
             SU2_Assert(it != Species_Names.end(), "The species is not present in the mixture");
+            curr_species = it->first;
             iSpecies = it->second;
             n_line++;
           }
@@ -656,25 +657,25 @@ namespace Framework {
             /*--- Reading temperature ---*/
             curr_line>>curr_temp;
             SU2_Assert(!curr_line.fail(),std::string("Empty Temperature field at line " + std::to_string(n_line + 1) +
-                                                     " for species " + std::to_string(iSpecies)));
+                                                     " for species " + curr_species));
             temp_data->push_back(curr_temp);
 
             /*--- Reading viscosity ---*/
             curr_line>>curr_visc;
             SU2_Assert(!curr_line.fail(),std::string("Empty Mu field at line " + std::to_string(n_line + 1) +
-                                                     " for species " + std::to_string(iSpecies)));
+                                                     " for species " + curr_species));
             mu_data.push_back(curr_visc);
 
             /*--- Reading conductivity ---*/
             curr_line>>curr_cond;
             SU2_Assert(!curr_line.fail(),std::string("Empty Kappa field at line " + std::to_string(n_line + 1) +
-                                                     " for species " + std::to_string(iSpecies)));
+                                                     " for species " + curr_species));
             kappa_data.push_back(curr_cond);
 
             n_line++;
-          }
+          } /*--- End reading data --*/
         }
-      }
+      } /*--- End reading file ---*/
 
       RealVec y2_mu,y2_kappa;
 
@@ -698,11 +699,12 @@ namespace Framework {
   void ReactingModelLibrary::ReadDataThermo(const std::string& f_name) {
     std::string line;
     unsigned n_line = 0;
+    std::string curr_species;
     unsigned short iSpecies;
     double curr_temp,curr_enth,curr_Cp,curr_entr;
     std::shared_ptr<RealVec> temp_data(new RealVec());
     RealVec cp_data,enth_data,entr_data;
-    *temp_data.reserve(nSpecies);
+    (*temp_data).reserve(nSpecies);
     cp_data.reserve(nSpecies);
     enth_data.reserve(nSpecies);
     entr_data.reserve(nSpecies);
@@ -718,6 +720,7 @@ namespace Framework {
           SU2_Assert(std::isalpha(line[0]),"You have to specify the species");
           auto it = Species_Names.find(line);
           SU2_Assert(it != Species_Names.end(), "The species is not present in the mixture");
+          curr_species = it->first;
           iSpecies = it->second;
           n_line++;
         }
@@ -727,31 +730,31 @@ namespace Framework {
           /*--- Reading temperature ---*/
           curr_line>>curr_temp;
           SU2_Assert(!curr_line.fail(),std::string("Empty Temperature field at line " + std::to_string(n_line + 1) +
-                                                   " for species " + std::to_string(iSpecies)));
+                                                   " for species " + curr_species));
           temp_data->push_back(curr_temp);
 
           /*--- Reading Cp ---*/
           curr_line>>curr_Cp;
           SU2_Assert(!curr_line.fail(),std::string("Empty Cp field at line " + std::to_string(n_line + 1) +
-                                                   " for species " + std::to_string(iSpecies)));
+                                                   " for species " + curr_species));
           cp_data.push_back(curr_Cp);
 
           /*--- Reading Enthalpy ---*/
           curr_line>>curr_enth;
           SU2_Assert(!curr_line.fail(),std::string("Empty Enthalpy field at line " + std::to_string(n_line + 1) +
-                                                   " for species " + std::to_string(iSpecies)));
+                                                   " for species " + curr_species));
           enth_data.push_back(curr_enth);
 
           /*--- Reading Entropy ---*/
           curr_line>>curr_entr;
           SU2_Assert(!curr_line.fail(),std::string("Empty Entropy field at line " + std::to_string(n_line + 1) +
-                                                   " for species " + std::to_string(iSpecies)));
+                                                   " for species " + curr_species));
           entr_data.push_back(curr_entr);
 
           n_line++;
-        }
+        } /*--- End reading data ---*/
        }
-      }
+     } /*--- End reading file ---*/
 
       RealVec y2_cp,y2_enth,y2_entr;
 
@@ -817,10 +820,8 @@ namespace Framework {
       for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
         std::string file_species = list_file[iSpecies*2 + 2];
         ReadDataTransp(file_species);
-        std::cout<<"Transport Data Species "<<iSpecies<<" read"<<std::endl;
         std::string file_thermo = list_file[iSpecies*2 + 3];
         ReadDataThermo(file_thermo);
-        std::cout<<"Thermo Data Species "<<iSpecies<<" read"<<std::endl;
       }
       Lib_Setup = true;
       std::cout<<"Library set."<<std::endl;
@@ -848,10 +849,10 @@ namespace Framework {
       Thermal_Conductivities.clear();
       Formation_Enthalpies.clear();
 
-      Stoich_Coeffs_Products.clear();
-      Stoich_Coeffs_Products_Exp.clear();
-      Stoich_Coeffs_Reactants.clear();
-      Stoich_Coeffs_Reactants_Exp.clear();
+      Stoich_Coeffs_Products.resize(0,0);
+      Stoich_Coeffs_Products_Exp.resize(0,0);
+      Stoich_Coeffs_Reactants.resize(0,0);
+      Stoich_Coeffs_Reactants_Exp.resize(0,0);
       As.clear();
       Ns.clear();
       Temps_Activation.clear();

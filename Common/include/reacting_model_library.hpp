@@ -3,6 +3,8 @@
 
 #include "physical_chemical_library.hpp"
 
+#include "../../externals/Eigen/Dense"
+#include "su2_assert.hpp"
 #include <memory>
 #include <map>
 #include <set>
@@ -13,12 +15,12 @@ namespace Framework {
   /*!
    * \brief Provides a particular library definition to compute the physical and chemical properties.
    */
-
-  class ReactingModelLibrary: public Framework::PhysicalChemicalLibrary<RealVec> {
+  class ReactingModelLibrary: public Framework::PhysicalChemicalLibrary<RealVec,Eigen::MatrixXd> {
 
   public:
 
     typedef std::tuple<std::shared_ptr<RealVec>,RealVec,RealVec> MyTuple;
+    using RealMatrix = Eigen::MatrixXd;
     using Vec = Eigen::VectorXd;
 
   public:
@@ -37,7 +39,7 @@ namespace Framework {
      * \brief Check if library is setup.
      */
     inline bool IsSetup(void) const {
-      return PhysicalChemicalLibrary<RealVec>::Lib_Setup;
+      return PhysicalChemicalLibrary<RealVec,RealMatrix>::Lib_Setup;
     }
 
     /*!
@@ -51,25 +53,25 @@ namespace Framework {
     void Unsetup(void);
 
     /*!
-     * \brief Set the constant of gases for each species [J/(Kg*K)]
+     * \brief Set the constant of gases for each species [J/(Kmol*K)]
      */
     void SetRiGas(void) override;
 
     /*!
-     * \brief Get the constant of perfect gases [J/(Kg*K)]
+     * \brief Get the constant of perfect gases [J/(Kmol*K)]
      */
     inline double GetRgas(void) const override {
       return Rgas;
     }
 
     /*!
-     * \brief Set the constant of perfect gases for the mixture[J/(Kg*K)]
+     * \brief Set the constant of perfect gases for the mixture[J/(Kmol*K)]
      * \param[in] ys - The vector of the mass fractions of species
      */
     void SetRgas(const RealVec& ys) override;
 
     /*!
-     * Compute the constant of perfect gases for the mixture [J/(Kg*K)]
+     * Compute the constant of perfect gases for the mixture [J/(Kmol*K)]
      * \param[in] ys - The vector of the mass fractions of species
      */
     double ComputeRgas(const RealVec& ys) override;
@@ -83,15 +85,15 @@ namespace Framework {
     }
 
     /*!
-     * \brief Gets the molar fractions from the mass fractions.
+     * \brief Get the molar fractions from the mass fractions.
      * \param[in] ys - The vector of the mass fractions of species (input)
     */
     RealVec GetMolarFromMass(const RealVec& ys) override;
 
     /*!
-     * Sets the molar fractions of elements Xn. This function should be called before getting
+     * Set the molar fractions of elements Xs. This function should be called before getting
      * thermodynamic quantities or transport properties.
-     * \param[in] xn - The vector of the mass fractions of elements
+     * \param[in] xs - The vector of the molar fractions of elements
     */
     void SetMolarFractions(const RealVec& xs) override;
 
@@ -102,13 +104,13 @@ namespace Framework {
     void SetMolarFromMass(const RealVec& ys) override;
 
     /*!
-     * \brief Gets the mass fractions from the molar fractions.
+     * \brief Get the mass fractions from the molar fractions.
      * \param[in] xs - The vector of the molar fractions of species (input)
      */
     RealVec GetMassFromMolar(const RealVec& xs) override;
 
     /*!
-     * \brief Sets the mass fractions. This function should be called before getting
+     * \brief Set the mass fractions. This function should be called before getting
      * \brief thermodynamic quantities or transport properties.
      * \param[in] ys The vector of the mass fractions of species
     */
@@ -157,7 +159,7 @@ namespace Framework {
      * \param[in] temp - temperature
      * \param[in] pressure - pressure
      * \param[in] ys - mass fractions
-     * \param[out] dhe - RealVector with density, enthalpy, energy (output) for thermal equilibrium
+     * \param[out] dhe - Vector with density, enthalpy, energy (output) for thermal equilibrium
      */
     void Density_Enthalpy_Energy(const double temp, const double pressure, const RealVec& ys, RealVec& dhe) override;
 
@@ -403,13 +405,19 @@ namespace Framework {
 
     RealMatrix Stoich_Coeffs_Products_Exp; /*!< \brief Stochiometric coefficents vector. */
 
-    std::vector<bool> Elementary_Reactions; /*!< \brief RealVector to check if a reaction is elementary. */
+    std::vector<bool> Elementary_Reactions; /*!< \brief Vector to check if a reaction is elementary. */
 
-    RealVec As;  /*!< \brief RealVector with exponential pre factor. */
+    RealVec As;  /*!< \brief Vector with exponential pre factor. */
 
-    std::vector<int> Ns;  /*!< \brief RealVector with temperature exponent. */
+    std::vector<int> Ns;  /*!< \brief Vector with temperature exponent. */
 
-    RealVec Temps_Activation;  /*!< \brief RealVector with activation temperatures to estimate reaction rates for each reaction. */
+    RealVec Temps_Activation;  /*!< \brief Vector with activation temperatures to estimate reaction rates for each reaction. */
+
+    RealVec ys_over_mm; /*!< \brief Auxiliary vector to compute viscosity and thermal conductivity. */
+
+  private:
+
+    enum {T_DATA_SPLINE = 0, X_DATA_SPLINE = 1, Y_DATA_SPLINE = 2}; /*!< \brief Enumerator for spline indexes. */
 
   }; /*-- End of class ReactingModelLibrary ---*/
 

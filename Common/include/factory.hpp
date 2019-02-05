@@ -1,7 +1,10 @@
 #ifndef SU2_FACTORY
 #define SU2_FACTORY
 
-#include "abstract_factory.hpp"
+#include "not_copyable.hpp"
+
+#include <string>
+#include <vector>
 
 #include <map>
 #include <stdexcept>
@@ -9,8 +12,8 @@
 #include <sstream>
 
 /*!
-  * This namespace provides a factory class to load run-time the library that
-  * will compute the physical and chemical properties of the considered mixture
+ * This namespace provides a factory class to load run-time the library that
+ * will compute the physical and chemical properties of the considered mixture
 */
 
 namespace Common {
@@ -23,14 +26,13 @@ namespace Common {
     * \author G. Orlando
     */
   template<class Base>
-  class Factory: public Common::AbstractFactory {
+  class Factory: public Common::NotCopyable<Factory<Base>> {
   public:
 
     /*
      * \brief Destrcutor
     */
     virtual ~Factory() {}
-
 
     /*
      * \brief Get the instance of this singleton
@@ -58,7 +60,7 @@ namespace Common {
     /*
      * \brief Get the name of the Base class
     */
-    inline const std::string GetBaseName() const override {
+    inline const std::string GetBaseName() const {
       return Base::GetBaseName();
     }
 
@@ -71,7 +73,7 @@ namespace Common {
     /*
      * \brief Returns all the providers in this factory
     */
-    std::vector<std::string> GetAllProviders(void) const override;
+    std::vector<std::string> GetAllProviders(void) const;
 
   private:
 
@@ -86,7 +88,7 @@ namespace Common {
 
     Container_type database; /*!< \brief Database to store providers */
 
-  };
+  }; /*--- End of class Factory ---*/
 
   template<class Base>
   Factory<Base>& Factory<Base>::GetInstance(void) {
@@ -115,7 +117,7 @@ namespace Common {
   void Factory<Base>::Unregist(const std::string& provider_name) {
     if (!Exists(provider_name)) {
       std::string out="Provider " + provider_name + " is not stored in the factory";
-	     throw std::invalid_argument(out);
+	    throw std::invalid_argument(out);
     }
     database.erase(provider_name);
   }

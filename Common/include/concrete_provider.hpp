@@ -16,23 +16,22 @@ namespace Common {
   public:
 
     /*!
-      * \brief Constructor of the class
+     * \brief Constructor of the class
     */
     explicit ConcreteProvider(const std::string& name): Common::Provider<Base>(name) {}
 
     /*!
-      * \brief Virtual destructor
+     * \brief Virtual destructor
     */
-    ~ConcreteProvider() {}
+    virtual ~ConcreteProvider() {}
 
     /*!
-      *\brief Create an instance of provider: it must take exactly one argument
-      *\param[in] arg - argument to construct the desired provider
+     *\brief Create an instance of provider: it must take exactly one argument
+     *\param[in] arg - argument to construct the desired provider
     */
     virtual std::unique_ptr<Base> Create(typename Base::Arg1 arg) = 0;
 
   }; /*-- End of class ConcreteProvider ---*/
-
 
 } /*-- End of namespace Common ---*/
 
