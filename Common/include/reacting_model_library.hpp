@@ -287,12 +287,20 @@ namespace Framework {
     RealVec GetRhoUdiff(const double temp, const double rho, const RealVec& ys) override;
 
    /*!
-    * Returns the diffusion velocities of species multiplied by the species
-    * densities for nonequilibrium computations
-    * \param[in] temp - the mixture temperature
+    * Returns the binary diffusion coefficients
     * \param[in] pressure - the mixture pressure
+    * \param[in] temp - the mixture temperature
     */
-    RealMatrix GetDij_SM(const double pressure, const double temperature) override;
+    RealMatrix GetDij_SM(const double pressure, const double temp) override;
+
+    /*!
+     * Returns thematrix of Stefan-Maxwell equations
+     * \param[in] rho - the mixture density
+     * \param[in] xs - current molar fractions
+     * \param[in] ys - current mass fractions
+     * \param[in] val_Dij - current binary diffusion coefficients
+     */
+    RealMatrix GetGamma(const double rho, const RealVec& xs, const RealVec& ys, const RealMatrix& val_Dij) override;
 
     /*!
      * \brief Returns the effective diffusion coefficients to solve Stefan-Maxwell equation
@@ -349,7 +357,7 @@ namespace Framework {
       * \parm[in]  n_reac - the cuurent number of reactions detected
       * \param[out] Species_Reactions - names of species form reactions
     */
-    void ReadReactSpecies(const std::string& line, bool is_elem, unsigned n_reac, std::set<std::string>& Species_Reactions);
+    void ReadReactSpecies(const std::string& line, bool is_elem, unsigned n_reac);
 
     /*!
       * Read coefficients to compute reaction rates from line
@@ -414,6 +422,16 @@ namespace Framework {
     RealVec Temps_Activation;  /*!< \brief Vector with activation temperatures to estimate reaction rates for each reaction. */
 
     RealVec ys_over_mm; /*!< \brief Auxiliary vector to compute viscosity and thermal conductivity. */
+
+    RealVec rhoUdiff; /*!< \brief Auxiliary vector for mass production term in case of constant Lewis number. */
+
+    RealVec Dm_coeffs; /*!< \brief Auxiliary vector for effective diffusion coefficients. */
+
+    RealVec omega; /*!< \brief Auxiliary vector for mass production term. */
+
+    RealMatrix Dij; /*!< \brief Auxiliary matrix for diffusion binary coefficients. */
+
+    RealMatrix Gamma; /*!< \brief Auxiliary matrix for Stefan-Maxwell equations. */
 
   private:
 

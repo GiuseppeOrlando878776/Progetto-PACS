@@ -282,10 +282,19 @@ namespace Framework  {
     /*!
      * Returns the diffusion velocities of species multiplied by the species
      * densities for nonequilibrium computations
-     * \param[in] temp the mixture temperature
-     * \param[in] pressure the mixture pressure
+     * \param[in] pressure - the mixture pressure
+     * \param[in] temp - the mixture temperature
     */
-    virtual Matrix GetDij_SM(const double pressure, const double temperature) = 0;
+    virtual Matrix GetDij_SM(const double pressure, const double temp) = 0;
+
+    /*!
+     * Returns thematrix of Stefan-Maxwell equations
+     * \param[in] rho - the mixture density
+     * \param[in] xs - current molar fractions
+     * \param[in] ys - current mass fractions
+     * \param[in] val_Dij - current binary diffusion coefficients
+     */
+    virtual Matrix GetGamma(const double rho, const Vector& xs, const Vector& ys, const Matrix& val_Dij) = 0;
 
     /*!
      * \brief Returns the effective diffusion coefficients to solve Stefan-Maxwell equation using Sutton algorithm

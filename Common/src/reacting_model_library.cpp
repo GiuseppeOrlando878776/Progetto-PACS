@@ -10,7 +10,6 @@
 #include <numeric>
 
 namespace Framework {
-
   //
   //
   /*--- Setting gas constant for each species ---*/
@@ -25,8 +24,10 @@ namespace Framework {
   //
   /*--- Setting gas constant for mixture ---*/
   void ReactingModelLibrary::SetRgas(const RealVec& ys) {
-    SU2_Assert(ys.size() == nSpecies,"The dimension of vector rs doesn't match nSpecies");
-    Rgas = std::inner_product(ys.cbegin(),ys.cend(),Ri.cbegin(),0.0);
+    /*--- Check the correct size of vectors ---*/
+    SU2_Assert(ys.size() == nSpecies,"The dimension of vector ys doesn't match nSpecies");
+    SetMassFractions(ys);
+    Rgas = std::inner_product(Ys.cbegin(),Ys.cend(),Ri.cbegin(),0.0);
   }
 
   //
@@ -41,14 +42,15 @@ namespace Framework {
   //
   /*--- Setting molar fraction for each species ---*/
   void ReactingModelLibrary::SetMolarFractions(const RealVec& xs) {
+    /*--- Check the correct size of vectors ---*/
     SU2_Assert(xs.size() == nSpecies,"The dimension of vector xs doesn't match nSpecies");
     Xs = xs;
 
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
       if(Xs[iSpecies] < 0.0)
-        Xs[iSpecies] = 1e-16;
+        Xs[iSpecies] = 1.0e-30;
 
-      SU2_Assert(Xs[iSpecies]<=1.0, std::string("The molar fraction of species number " + std::to_string(iSpecies) + "is greater than 1"));
+      SU2_Assert(Xs[iSpecies] <= 1.0, std::string("The molar fraction of species number " + std::to_string(iSpecies) + "is greater than 1"));
     }
   }
 
@@ -56,14 +58,15 @@ namespace Framework {
   //
   /*--- Setting mass fraction for each species ---*/
   void ReactingModelLibrary::SetMassFractions(const RealVec& ys) {
+    /*--- Check the correct size of vectors ---*/
     SU2_Assert(ys.size() == nSpecies,"The dimension of vector ys doesn't match nSpecies");
     Ys = ys;
 
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
       if(Ys[iSpecies] < 0.0)
-        Ys[iSpecies] = 1e-16;
+        Ys[iSpecies] = 1.0e-30;
 
-      SU2_Assert(Ys[iSpecies]<=1.0,std::string("The mass fraction of species number " + std::to_string(iSpecies) + "is greater than 1"));
+      SU2_Assert(Ys[iSpecies] <= 1.0,std::string("The mass fraction of species number " + std::to_string(iSpecies) + "is greater than 1"));
     }
   }
 
@@ -117,7 +120,7 @@ namespace Framework {
   /* This function computes gamma and the frozen sound speed */
   inline void ReactingModelLibrary::Gamma_FrozenSoundSpeed(const double temp, const RealVec& ys, double& gamma, double& sound_speed) {
     double Cp = ComputeCP(temp,ys);
-    SetRgas(ys);
+    double Rgas = std::inner_product(Ys.cbegin(),Ys.cend(),Ri.cbegin(),0.0);
     double Cv = Cp - Rgas;
     gamma = Cp/Cv;
     sound_speed = std::sqrt(gamma*Rgas*temp);
@@ -128,7 +131,7 @@ namespace Framework {
   /* This function computes the frozen gamma */
   inline double ReactingModelLibrary::ComputeFrozenGamma(const double temp, const RealVec& ys) {
     double Cp = ComputeCP(temp,ys);
-    SetRgas(ys);
+    double Rgas = std::inner_product(Ys.cbegin(),Ys.cend(),Ri.cbegin(),0.0);
     double Cv = Cp - Rgas;
     return Cp/Cv;
   }
@@ -170,7 +173,7 @@ namespace Framework {
   /* This function computes internal energy at given temperature and pressure */
   inline double ReactingModelLibrary::ComputeEnergy(const double temp, const RealVec& ys) {
     double enthalpy = ComputeEnthalpy(temp,ys);
-    SetRgas(ys);
+    double Rgas = std::inner_product(Ys.cbegin(),Ys.cend(),Ri.cbegin(),0.0);
     return enthalpy - temp*Rgas;
   }
 
@@ -224,6 +227,7 @@ namespace Framework {
   //
   /*--- Computing molecular viscosity of each species---*/
   void ReactingModelLibrary::ComputeViscosities(const double temp) {
+    /*--- Check the correct size of vectors ---*/
     SU2_Assert(Mu_Spline.size() == nSpecies,"The dimension of Mu_Spline doesn't match nSpecies");
     SU2_Assert(Viscosities.size() == nSpecies,"The dimension of Viscosities doesn't match nSpecies");
 
@@ -237,6 +241,8 @@ namespace Framework {
   /*--- Computing viscosity of the mixture---*/
   double ReactingModelLibrary::ComputeEta(const double temp, const RealVec& ys) {
     ComputeViscosities(temp);
+
+    /*--- Check the correct size of vectors ---*/
     SU2_Assert(ys.size() == nSpecies,"The dimension of ys doesn't match nSpecies");
 
     unsigned short iSpecies, jSpecies;
@@ -262,6 +268,7 @@ namespace Framework {
   //
   /*--- Computing thermal conductivity of each species ---*/
   void ReactingModelLibrary::ComputeConductivities(const double temp) {
+    /*--- Check the correct size of vectors ---*/
     SU2_Assert(Kappa_Spline.size() == nSpecies,"The dimension of Kappa_Spline doesn't match nSpecies");
     SU2_Assert(Thermal_Conductivities.size() == nSpecies,"The dimension of Thermal_Conductivities doesn't match nSpecies");
 
@@ -277,6 +284,8 @@ namespace Framework {
   double ReactingModelLibrary::ComputeLambda(const double temp, const RealVec& ys) {
     ComputeConductivities(temp);
     ComputeViscosities(temp);
+
+    /*--- Check the correct size of vectors ---*/
     SU2_Assert(ys.size() == nSpecies,"The dimension of ys doesn't match nSpecies");
 
     double Thermal_Conductivity_Mixture = 0.0;
@@ -306,7 +315,6 @@ namespace Framework {
   RealVec ReactingModelLibrary::GetRhoUdiff(const double temp, const double rho, const RealVec& ys) {
     double kappa = ComputeLambda(temp,ys);
     double Cp = ComputeCP(temp,ys);
-    RealVec rhoUdiff(nSpecies);
     std::fill(rhoUdiff.begin(),rhoUdiff.end(),kappa/(rho*Cp*Le));
     return rhoUdiff;
   }
@@ -314,47 +322,72 @@ namespace Framework {
   //
   //
   /* This function computes the binary diffusion coefficients for Stefan-Maxwell diffusion with an empirical formula */
-  ReactingModelLibrary::RealMatrix ReactingModelLibrary::GetDij_SM(const double temp, const double pressure) {
-    RealMatrix result(nSpecies,nSpecies);
+  ReactingModelLibrary::RealMatrix ReactingModelLibrary::GetDij_SM(const double pressure, const double temp) {
     double Mij,diff_vol_i,molar_mass_i,diff_vol_j;
 
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
       molar_mass_i = mMasses[iSpecies];
       diff_vol_i = std::cbrt(Diff_Volumes[iSpecies]);
-      for(unsigned short jSpecies = 0; jSpecies < nSpecies; ++jSpecies) {
+      for(unsigned short jSpecies = iSpecies; jSpecies < nSpecies; ++jSpecies) {
         Mij = std::sqrt(2.0*(molar_mass_i*mMasses[jSpecies])/(molar_mass_i + mMasses[jSpecies]));
         diff_vol_j = std::cbrt(Diff_Volumes[jSpecies]);
-        result(iSpecies,jSpecies) = 0.0143*std::pow(temp,1.75)/(pressure*Mij*(diff_vol_i + diff_vol_j)*(diff_vol_i + diff_vol_j));
+        Dij(iSpecies,jSpecies) = 0.0143*std::pow(temp,1.75)/(pressure*Mij*(diff_vol_i + diff_vol_j)*(diff_vol_i + diff_vol_j));
+        Dij(jSpecies,iSpecies) = Dij(iSpecies,jSpecies);
       }
     }
-    return result;
+    return Dij;
+  }
+
+  //
+  //
+  /* This function computes the original matrix for Stefan-Maxwell equations */
+  ReactingModelLibrary::RealMatrix ReactingModelLibrary::GetGamma(const double rho, const RealVec& val_xs, const RealVec& val_ys,
+                                                                  const RealMatrix& val_Dij) {
+    /*--- Check the correct size of vectors ---*/
+    SU2_Assert(val_ys.size() == nSpecies,"The dimension of vector val_ys doesn't match nSpecies");
+    SU2_Assert(val_xs.size() == nSpecies,"The dimension of vector val_xs doesn't match nSpecies");
+
+    const double sigma = std::accumulate(val_ys.cbegin(), val_ys.cend(), 0.0);
+    double massTot = mMasses[0]*val_xs[0]/(sigma*val_ys[0]);
+
+    for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
+      for(unsigned short jSpecies = 0; jSpecies < nSpecies; ++jSpecies) {
+        if(iSpecies != jSpecies)
+          Gamma(iSpecies,jSpecies) = -sigma*massTot*val_xs[iSpecies]/(rho*mMasses[jSpecies]*val_Dij(iSpecies,jSpecies));
+        else {
+          double tmp = 0.0;
+          for(unsigned short kSpecies = 0; kSpecies < nSpecies; ++kSpecies)
+          if(kSpecies != iSpecies)
+            tmp += val_xs[kSpecies]/val_Dij(iSpecies,kSpecies);
+          Gamma(iSpecies,iSpecies) = sigma*massTot*tmp/(rho*mMasses[iSpecies]);
+        }
+      }
+    }
+    return Gamma;
   }
 
   //
   //
   /* This function computes the effective diffusion coefficients for each species */
   RealVec ReactingModelLibrary::GetDiffCoeffs(const double temp, const double pressure, const RealVec& ys) {
-    RealVec result;
-    result.reserve(nSpecies);
-    double tmp;
-
-    RealMatrix Dij = GetDij_SM(temp,pressure);
+    Dij = GetDij_SM(temp,pressure);
     SetMolarFromMass(ys);
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
-      tmp = 0.0;
+      double tmp = 0.0;
       for(unsigned short jSpecies = 0; jSpecies < nSpecies; ++jSpecies) {
         if(iSpecies != jSpecies)
           tmp += Xs[jSpecies]/Dij(iSpecies,jSpecies);
       }
-      result.emplace_back((1.0 - Xs[iSpecies])/tmp);
+      Dm_coeffs[iSpecies] = ((1.0 - Xs[iSpecies])/tmp);
     }
-    return result;
+    return Dm_coeffs;
   }
 
   //
   //
   /* This function computes the species concetration */
   void ReactingModelLibrary::SetConcentration(const double rho, const RealVec& ys) {
+    /*--- Check the correct size of vectors ---*/
     SU2_Assert(ys.size() == nSpecies, "The dimension of vector with mass fractinos doesn't match nSpecies");
     SU2_Assert(Cs.size() == nSpecies, "The dimension of vector with partial concetrations doesn't match nSpecies");
 
@@ -370,13 +403,12 @@ namespace Framework {
     SU2_Assert(iReac < nReactions, "The index of reaction exceeds the number of reactions detected");
 
     double kf,kb;
-    unsigned short iSpecies;
 
     kf = As[iReac]*std::pow(temp,Ns[iReac])*std::exp(-Temps_Activation[iReac]/temp);
 
     double dG = 0.0;
     double dnu = 0.0;
-    for(iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
+    for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
       double dcoeff = Stoich_Coeffs_Products(iSpecies,iReac) - Stoich_Coeffs_Reactants(iSpecies,iReac);
       if(dcoeff != 0.0) {
         dG += dcoeff*
@@ -388,14 +420,19 @@ namespace Framework {
       }
     }
     const double RT = R_ungas*temp;
-    const double Keq = std::exp(-dG/RT)*std::pow(RT,-dnu);
+    const double Kp = std::exp(-dG/RT);
+    bool is_complete = (Kp > 1.0e10);
     if(!Elementary_Reactions[iReac]) {
-      if(Keq < 100.0)
+      if(!is_complete)
         std::cerr<<"The equilibrium constant is not so big even if the reaction is considered 'irreversible'"<<std::endl;
       kb = 0.0;
     }
-    else
+    else if(is_complete)
+      kb = 0.0;
+    else {
+      const double Keq = Kp*std::pow(RT,-dnu);
       kb = kf/Keq;
+    }
 
     return std::make_pair(kf,kb);
   }
@@ -405,8 +442,6 @@ namespace Framework {
   /* This function computes the omega term */
   RealVec ReactingModelLibrary::GetMassProductionTerm(const double temp, const double rho, const RealVec& ys) {
     SetConcentration(rho,ys);
-    RealVec omega;
-    omega.resize(nSpecies);
     std::fill(omega.begin(),omega.end(),0.0);
 
     double kf_con,kb_con;
@@ -416,12 +451,16 @@ namespace Framework {
       Eigen::ArrayXd stoich_reac_exp = Stoich_Coeffs_Reactants_Exp.row(iReac);
       auto cs_exp = cs.pow(stoich_reac_exp);
       kf_con = cs_exp.prod();
-      Eigen::ArrayXd stoich_prod_exp = Stoich_Coeffs_Products_Exp.row(iReac);
-      auto cs_prod = cs.pow(stoich_prod_exp);
-      kb_con = cs_prod.prod();
       auto Keq = GetKeq(iReac,temp);
       kf_con *= Keq.first;
-      kb_con *= Keq.second;
+      kb_con = 0.0;
+      /*--- Check if we need to compute reverse reaction rate in order to vaoid useless and dangerous computations ---*/
+      if(Keq.second > 1.0e-16) {
+        Eigen::ArrayXd stoich_prod_exp = Stoich_Coeffs_Products_Exp.row(iReac);
+        auto cs_prod = cs.pow(stoich_prod_exp);
+        kb_con = cs_prod.prod();
+        kb_con *= Keq.second;
+      }
       for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
         omega[iSpecies] += mMasses[iSpecies]*(Stoich_Coeffs_Products(iSpecies,iReac) - Stoich_Coeffs_Reactants(iSpecies,iReac))*(kf_con - kb_con);
     }
@@ -450,18 +489,19 @@ namespace Framework {
         if(line == "STOP")
           break;
         /*--- We avoid clearly reading comments and empty lines in the file ---*/
-        if(!line.empty() && !std::ispunct(line[0])) {
+        if(!line.empty() && !std::ispunct(line.at(0))) {
           if(n_line == 0) {
             std::istringstream curr_line(line);
             curr_line>>nSpecies;
             SU2_Assert(!curr_line.fail(),"You have to specify the number of species before proceding");
+            SU2_Assert(nSpecies > 0,"The number of species must be greater than zero: you can't simulate anything otherwise");
             mMasses.reserve(nSpecies);
             Formation_Enthalpies.reserve(nSpecies);
             Diff_Volumes.reserve(nSpecies);
             n_line++;
           }
           else {
-            SU2_Assert(std::isalpha(line[0]),std::string("Empty species field at line " + std::to_string(n_line)));
+            SU2_Assert(std::isalpha(line.at(0)),std::string("Empty species field at line " + std::to_string(n_line)));
             std::string curr_species;
             double curr_mass,curr_enth,curr_vol;
             std::istringstream curr_line(line);
@@ -497,6 +537,11 @@ namespace Framework {
         CPs.resize(nSpecies);
         Thermal_Conductivities.resize(nSpecies);
         ys_over_mm.resize(nSpecies);
+        rhoUdiff.resize(nSpecies);
+        Dm_coeffs.resize(nSpecies);
+        omega.resize(nSpecies);
+        Dij.resize(nSpecies,nSpecies);
+        Gamma.resize(nSpecies,nSpecies);
       }
       mixfile.close();
     }
@@ -516,7 +561,6 @@ namespace Framework {
 
     std::ifstream chemfile(f_name);
     if(chemfile.is_open()) {
-      std::set<std::string> Species_Reactions;
       /*--- Clear for safety ---*/
       Stoich_Coeffs_Reactants.resize(0,0);
       Stoich_Coeffs_Reactants.resize(0,0);
@@ -532,7 +576,7 @@ namespace Framework {
         if(line == "STOP")
           break;
         /*--- We avoid clearly reading empty lines and comments in the file ---*/
-        if(!line.empty() && !std::ispunct(line[0])) {
+        if(!line.empty() && !std::ispunct(line.at(0))) {
           if(n_line == 0) {
             std::istringstream curr_line(line);
             curr_line>>nReactions;
@@ -548,15 +592,15 @@ namespace Framework {
             n_line++;
           }
           else {
-            bool is_elementary;
+            bool is_rev;
             if(n_line % 2 == 1) {
-              is_elementary = line.find('<') != std::string::npos;
-              Elementary_Reactions.push_back(is_elementary);
+              is_rev = (line.find('<') != std::string::npos);
+              Elementary_Reactions.push_back(is_rev);
               n_reac_read++;
-              ReadReactSpecies(line,is_elementary,n_reac_read,Species_Reactions);
+              ReadReactSpecies(line,is_rev,n_reac_read);
             }
             else {
-              Elementary_Reactions.push_back(is_elementary);
+              Elementary_Reactions.push_back(is_rev);
               ReadChemCoefs(line);
             }
           }
@@ -564,7 +608,6 @@ namespace Framework {
         }
       }
       SU2_Assert(n_reac_read == nReactions, "The number of reactions detected doesn't match nReactions");
-      SU2_Assert(Species_Reactions.size() == Species_Names.size(),"Some species declared in the mixture are not in the reactions");
       chemfile.close();
     }
     else {
@@ -576,7 +619,7 @@ namespace Framework {
   //
   //
   /*--- This function reads chemical reactions and store stoichiometric coefficients ---*/
-  void ReactingModelLibrary::ReadReactSpecies(const std::string& line, bool is_elem, unsigned n_reac, std::set<std::string>& Species_Reactions) {
+  void ReactingModelLibrary::ReadReactSpecies(const std::string& line, bool is_rev, unsigned n_reac) {
     auto minor_pos = line.find('<');
     auto major_pos = line.find('>');
     SU2_Assert(major_pos != std::string::npos,"No reaction in this line");
@@ -584,7 +627,7 @@ namespace Framework {
 
     std::string reactants_side,products_side;
 
-    if(is_elem) {
+    if(is_rev) {
       SU2_Assert(minor_pos + 2 == major_pos,"Incorrect symbol to detect reactions");
       SU2_Assert(line.find('<',minor_pos+1),"Already detected < symbol for reactions");
       reactants_side = line.substr(0,minor_pos);
@@ -597,10 +640,10 @@ namespace Framework {
     }
     products_side = line.substr(major_pos + 1);
 
-    Utility::Parse_Terms(reactants_side,n_reac,is_elem,Species_Names,Stoich_Coeffs_Reactants,Stoich_Coeffs_Reactants_Exp,Species_Reactions);
-    Utility::Parse_Terms(products_side,n_reac,is_elem,Species_Names,Stoich_Coeffs_Products,Stoich_Coeffs_Products_Exp,Species_Reactions);
-
-    Utility::CompleteBackwardRate(reactants_side,n_reac,is_elem,Species_Names,Stoich_Coeffs_Reactants,Stoich_Coeffs_Products);
+    Utility::Parse_Terms(reactants_side,n_reac,is_rev,true,Species_Names,Stoich_Coeffs_Reactants,
+                         Stoich_Coeffs_Reactants_Exp,Stoich_Coeffs_Products_Exp);
+    Utility::Parse_Terms(products_side,n_reac,is_rev,false,Species_Names,Stoich_Coeffs_Products,
+                         Stoich_Coeffs_Reactants_Exp,Stoich_Coeffs_Products_Exp);
   }
 
   //
@@ -642,9 +685,9 @@ namespace Framework {
       while(transpfile.good() && !transpfile.eof()) {
         std::getline(transpfile,line);
         /*--- We avoid clearly reading empty lines and comments ---*/
-        if(!line.empty() && !std::ispunct(line[0])) {
+        if(!line.empty() && !std::ispunct(line.at(0))) {
           if(n_line == 0) {
-            SU2_Assert(std::isalpha(line[0]),"You have to specify the species");
+            SU2_Assert(std::isalpha(line.at(0)),"You have to specify the species");
             auto it = Species_Names.find(line);
             SU2_Assert(it != Species_Names.end(), "The species is not present in the mixture");
             curr_species = it->first;
@@ -715,9 +758,9 @@ namespace Framework {
       while(thermofile.good() && !thermofile.eof()) {
       std::getline(thermofile,line);
       /*--- We clearly avoid reading and empty lines ---*/
-      if(!line.empty() && !std::ispunct(line[0])) {
+      if(!line.empty() && !std::ispunct(line.at(0))) {
         if(n_line == 0) {
-          SU2_Assert(std::isalpha(line[0]),"You have to specify the species");
+          SU2_Assert(std::isalpha(line.at(0)),"You have to specify the species");
           auto it = Species_Names.find(line);
           SU2_Assert(it != Species_Names.end(), "The species is not present in the mixture");
           curr_species = it->first;
@@ -794,7 +837,7 @@ namespace Framework {
         while(config_file.good() && !config_file.eof()) {
           std::string curr_line;
           std::getline(config_file,curr_line);
-          if(!curr_line.empty() && !std::ispunct(curr_line[0]))
+          if(!curr_line.empty() && !std::ispunct(curr_line.at(0)))
             list_file.push_back(curr_line);
         }
       }
@@ -803,24 +846,39 @@ namespace Framework {
         std::exit(1);
       }
 
-      using size_type = std::vector<std::string>::size_type;
-      size_type n_file = 2*nSpecies + 2;
-      SU2_Assert(list_file.size() == n_file,"The number of files present in the configuration file is wrong");
-
-      std::string file_mix = list_file[0];
+      /*--- Read mixture file: it needs to be the first to check exactness of chemical reactions and properties ---*/
+      std::string file_mix = list_file.at(0);
       ReadDataMixture(file_mix);
       std::cout<<"Mixture Data read"<<std::endl;
+
+      /*--- Check we have the right number of files ---*/
+      using size_type = std::vector<std::string>::size_type;
+      size_type max_n_file = 2*nSpecies + 2;
+      size_type n_file = list_file.size();
+      SU2_Assert((n_file == max_file) || (n_file == max_n_file - 1),"The number of files present in the configuration file is wrong");
+
+      /*--- Set the specific gas constants ---*/
       SetRiGas();
 
-      std::string file_chem = list_file[1];
-      ReadDataChem(file_chem);
-      std::cout<<"Chemical Reactions read"<<std::endl;
-      /*--- We assume that data correspond to the declared species at the beginning of the file
+      /*--- Read chemistry file (if present) ---*/
+      int buffer_chemistry = 1;
+      nReactions = 0;
+      if(n_file == max_n_file) {
+        /*--- We assume that chemistry file is the second in the list if its present ---*/
+        std::string file_chem = list_file[1];
+        ReadDataChem(file_chem);
+        std::cout<<"Chemical Reactions read"<<std::endl;
+        buffer_chemistry = 0;
+      }
+
+      /*--- We assume that data correspond to the species declared at the beginning of the file
+            and a transport file is followed by a thermodynamic file
             (I can't check the content so it seems reasonable) ---*/
+      std::string file_transp, file_thermo;
       for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
-        std::string file_species = list_file[iSpecies*2 + 2];
-        ReadDataTransp(file_species);
-        std::string file_thermo = list_file[iSpecies*2 + 3];
+        file_transp = list_file[iSpecies*2 + 2 - buffer_chemistry];
+        ReadDataTransp(file_transp);
+        file_thermo = list_file[iSpecies*2 + 3 - buffer_chemistry];
         ReadDataThermo(file_thermo);
       }
       Lib_Setup = true;
@@ -863,6 +921,13 @@ namespace Framework {
       Mu_Spline.clear();
       Kappa_Spline.clear();
       Entr_Spline.clear();
+
+      ys_over_mm.clear();
+      rhoUdiff.clear();
+      Dm_coeffs.clear();
+      omega.clear();
+      Dij.resize(0,0);
+      Gamma.resize(0,0);
 
       Lib_Setup = false;
     }

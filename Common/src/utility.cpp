@@ -9,33 +9,32 @@ namespace Utility {
   //
   //
   /*--- This function reads a reaction from line ---*/
-  void Parse_Terms(std::string& line, unsigned n_reac, bool is_elem, const MyMap& map_names, RealMatrix& stoich_coeff,
-                   RealMatrix& stoich_coeff_exp, MySet& species_names) {
+  void Parse_Terms(std::string& line, unsigned n_reac, bool is_rev, bool is_reac, const MyMap& map_names, RealMatrix& stoich_coeff,
+                   RealMatrix& stoich_coeff_exp_reac, RealMatrix& stoich_coeff_exp_prod) {
      auto size = line.size();
      std::size_t idx = 0;
-     std::string coeff,symbol,exp_coeff,sub;
+     std::string coeff, symbol, exp_coeff;
 
      /*--- Find first stoichiometric coefficient or first letter of species name ---*/
-     while(!std::isdigit(line[idx]) and !std::isalpha(line[idx]))
+     while(!std::isdigit(line.at(idx)) && !std::isalpha(line.at(idx)))
        idx++;
 
      /*--- Extract leading coefficient ---*/
-     while(std::isdigit(line[idx]) || std::ispunct(line[idx])) {
-       coeff += line[idx];
+     while(std::isdigit(line.at(idx)) || std::ispunct(line.at(idx))) {
+       coeff += line.at(idx);
        idx++;
      }
 
      do {
        /*--- Extract chemical symbol ---*/
-       while(std::isalpha(line[idx]) || std::isdigit(line[idx])) {
-         symbol += line[idx];
+       while(std::isalpha(line.at(idx)) || std::isdigit(line.at(idx))) {
+         symbol += line.at(idx);
          idx++;
        }
-     } while(!std::ispunct(line[idx]) and !std::isspace(line[idx]) and line[idx] != '+' and idx < size);
+     } while(!std::ispunct(line.at(idx)) && !std::isspace(line.at(idx)) && line.at(idx) != '+' && idx < size);
 
      auto it = map_names.find(symbol);
-     SU2_Assert(it!=map_names.end(),std::string("The symbol " + symbol + " is not in the mixture list"));
-     species_names.insert(symbol);
+     SU2_Assert(it != map_names.end(),std::string("The symbol " + symbol + " is not in the mixture list"));
 
      /*--- Retrieve the index of the species detected ---*/
      unsigned short idx_species = it->second;
@@ -43,7 +42,7 @@ namespace Utility {
      /*--- Saving stoichiometric coefficient ---*/
      double coefficient;
      if(coeff.empty())
-      coefficient = 1.0;
+       coefficient = 1.0;
      else {
        std::istringstream str_to_coeff(coeff);
        str_to_coeff>>coefficient;
@@ -51,10 +50,10 @@ namespace Utility {
      stoich_coeff(idx_species,n_reac - 1) = coefficient;
 
      /*--- Saving possibly coefficient at the exponent of coencentration in reaction rate ---*/
-     if(std::ispunct(line[idx])) {
+     if(std::ispunct(line.at(idx))) {
        idx++;
-       while(std::isdigit(line[idx]) || std::ispunct(line[idx])) {
-         exp_coeff += line[idx];
+       while(std::isdigit(line.at(idx)) || std::ispunct(line.at(idx))) {
+         exp_coeff += line.at(idx);
          idx++;
        }
      }
@@ -62,61 +61,31 @@ namespace Utility {
      if(!exp_coeff.empty()) {
        std::istringstream str_to_expcoeff(exp_coeff);
        str_to_expcoeff>>exp_coefficient;
-       stoich_coeff_exp(n_reac - 1,idx_species) = exp_coefficient;
+       if(is_reac)
+        stoich_coeff_exp_reac(n_reac - 1,idx_species) = exp_coefficient;
+       else
+        stoich_coeff_exp_prod(n_reac - 1,idx_species) = exp_coefficient;
      }
-     /*--- If the reaction is elementary we need absolutely the exponent so if it is not present we put it ---*/
-     if(is_elem && exp_coefficient == 0.0)
-       stoich_coeff_exp(n_reac - 1,idx_species) = stoich_coeff(idx_species,n_reac - 1);
+     else {
+       if(is_reac)
+         stoich_coeff_exp_reac(n_reac - 1,idx_species) = stoich_coeff(idx_species,n_reac - 1);
+       if(is_rev && !is_reac)
+         stoich_coeff_exp_prod(n_reac - 1,idx_species) = stoich_coeff(idx_species,n_reac - 1);
+     }
+
+     /*--- Update products exponents in case of reversible reactions for reactants ---*/
+     if(is_rev && is_reac)
+       stoich_coeff_exp_prod(n_reac - 1,idx_species) = stoich_coeff_exp_reac(n_reac - 1,idx_species) - stoich_coeff(idx_species,n_reac - 1);
 
      /*--- Any more terms to extract? ---*/
      if(idx == size)
-      return;
+       return;
 
-     sub = line.substr((idx + 1), (size - idx));
+     std::string sub = line.substr((idx + 1), (size - idx));
      if(sub.empty())
-      return;
+       return;
      else
-      Parse_Terms(sub,map_names,stoich_coeff,stoich_coeff_exp,species_names);
-  }
-
-  //
-  //
-  /*--- This function sets the rate exponent for reactants side ---*/
-  void CompleteBackwardRate(std::string& line, unsigned n_reac, bool is_elem, const MyMap& map_names, const RealMatrix& stoich_coeff,
-                            RealMatrix& stoich_coeff_exp) {
-    if(!is_elem)
-      return;
-
-    auto size = line.size();
-    std::size_t idx = 0;
-    std::string coeff,symbol,exp_coeff,sub;
-
-    /*--- Find first stoichiometric coefficient or first letter of species name ---*/
-    while(!std::isdigit(line[idx]) and !std::isalpha(line[idx]))
-      idx++;
-
-    /*--- Extract leading coefficient ---*/
-    while(std::isdigit(line[idx]) || std::ispunct(line[idx])) {
-      coeff += line[idx];
-      idx++;
-    }
-
-    do {
-      /*--- Extract chemical symbol ---*/
-      while(std::isalpha(line[idx]) || std::isdigit(line[idx])) {
-        symbol += line[idx];
-        idx++;
-      }
-    } while(!std::ispunct(line[idx]) and !std::isspace(line[idx]) and line[idx] != '+' and idx < size);
-
-    auto it = map_names.find(symbol);
-
-    /*--- Retrieve the index of the species detected ---*/
-    unsigned short idx_species = it->second;
-    if(stoich_coeff_exp(n_reac - 1,idx_species) != 0.0)
-      return;
-
-    stoich_coeff_exp(n_reac - 1,idx_species) = 1.0 - stoich_coeff(idx_species,n_reac - 1);
+       Parse_Terms(sub,n_reac,is_rev,is_reac,map_names,stoich_coeff,stoich_coeff_exp_reac,stoich_coeff_exp_prod);
   }
 
 } /*--- End of namespace Utility ---*/
