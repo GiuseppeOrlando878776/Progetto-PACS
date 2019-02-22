@@ -1,5 +1,6 @@
 #include "../include/solver_reactive.hpp"
 #include "../include/numerics_reactive.hpp"
+#include "../include/variable_reactive_turbulence.hpp"
 #include "../../Common/include/reacting_model_library.hpp"
 #include "../../Common/include/not_implemented_exception.hpp"
 
@@ -2290,7 +2291,7 @@ void CReactiveEulerSolver::BC_Supersonic_Inlet(CGeometry* geometry, CSolver** so
   su2double Velocity2 = std::inner_product(Velocity, Velocity + nDim, Velocity, 0.0);
   V_inlet[CReactiveEulerVariable::H_INDEX_PRIM] = Enthalpy + 0.5*Velocity2;
   if(tkeNeeded)
-    V_inlet[CReactiveEulerVariable::H_INDEX_PRIM] += config->GetTke_FreeStreamND();
+    V_inlet[CReactiveEulerVariable::H_INDEX_PRIM] += GetTke_Inf();
   V_inlet[CReactiveEulerVariable::A_INDEX_PRIM] = SoundSpeed;
   std::copy(Ys.cbegin(), Ys.cend(), V_inlet + CReactiveEulerVariable::RHOS_INDEX_PRIM);
 
@@ -2348,11 +2349,15 @@ void CReactiveEulerSolver::BC_Supersonic_Inlet(CGeometry* geometry, CSolver** so
                                                 solver_container[TURB_SOL]->node[iPoint]->
                                                 GetSolution(CReactiveTurbVariable::TURB_KINE_INDEX));
 
-          /*--- Laminar viscosity ---*/
+          /*--- Laminar and eddy viscosity ---*/
           visc_numerics->SetLaminarViscosity(node[iPoint]->GetLaminarViscosity(), node[iPoint]->GetLaminarViscosity());
+          visc_numerics->SetEddyViscosity(node[iPoint]->GetEddyViscosity(), node[iPoint]->GetEddyViscosity());
 
           /*--- Thermal conductivity ---*/
-          visc_numerics->SetThermalConductivity(node[iPoint]->GetThermalConductivity(), node[iPoint]->GetThermalConductivity());
+          visc_numerics->SetThermalConductivity(node[iPoint]->GetThermalConductivity() +
+                                                node[iPoint]->GetSpecificHeatCp()*node[iPoint]->GetEddyViscosity()/GetPrandtl_Turb(),
+                                                node[iPoint]->GetThermalConductivity() +
+                                                node[iPoint]->GetSpecificHeatCp()*node[iPoint]->GetEddyViscosity()/GetPrandtl_Turb());
 
           /*--- Species binary coefficients ---*/
           auto avggrad_numerics = dynamic_cast<CAvgGradReactive_Flow*>(visc_numerics);
@@ -2562,7 +2567,7 @@ void CReactiveEulerSolver::BC_Outlet(CGeometry* geometry, CSolver** solver_conta
         if(US_System)
           V_outlet[CReactiveEulerVariable::H_INDEX_PRIM] *= 3.28084*3.28084;
         if(tkeNeeded)
-          V_outlet[CReactiveEulerVariable::H_INDEX_PRIM] += config->GetTke_FreeStreamND();
+          V_outlet[CReactiveEulerVariable::H_INDEX_PRIM] += GetTke_Inf();
         V_outlet[CReactiveEulerVariable::H_INDEX_PRIM] += 0.5*Velocity2;
         V_outlet[CReactiveEulerVariable::A_INDEX_PRIM] = SoundSpeed;
         std::copy(Ys.cbegin(), Ys.cend(), V_outlet + CReactiveEulerVariable::RHOS_INDEX_PRIM);
@@ -2610,11 +2615,15 @@ void CReactiveEulerSolver::BC_Outlet(CGeometry* geometry, CSolver** solver_conta
                                               solver_container[TURB_SOL]->node[iPoint]->
                                               GetSolution(CReactiveTurbVariable::TURB_KINE_INDEX));
 
-        /*--- Laminar viscosity ---*/
+        /*--- Laminar and eddy viscosity ---*/
         visc_numerics->SetLaminarViscosity(node[iPoint]->GetLaminarViscosity(), node[iPoint]->GetLaminarViscosity());
+        visc_numerics->SetEddyViscosity(node[iPoint]->GetEddyViscosity(), node[iPoint]->GetEddyViscosity());
 
         /*--- Thermal conductivity ---*/
-        visc_numerics->SetThermalConductivity(node[iPoint]->GetThermalConductivity(), node[iPoint]->GetThermalConductivity());
+        visc_numerics->SetThermalConductivity(node[iPoint]->GetThermalConductivity() +
+                                              node[iPoint]->GetSpecificHeatCp()*node[iPoint]->GetEddyViscosity()/GetPrandtl_Turb(),
+                                              node[iPoint]->GetThermalConductivity() +
+                                              node[iPoint]->GetSpecificHeatCp()*node[iPoint]->GetEddyViscosity()/GetPrandtl_Turb());
 
         /*--- Species binary coefficients ---*/
         auto avggrad_numerics = dynamic_cast<CAvgGradReactive_Flow*>(visc_numerics);
@@ -2775,14 +2784,19 @@ CReactiveNSSolver::CReactiveNSSolver(CGeometry* geometry, CConfig* config,unsign
   unsigned long ExtIter = config->GetExtIter();
   limiter = (config->GetSpatialOrder_Flow() == SECOND_ORDER_LIMITER && ExtIter <= config->GetLimiterIter());
 
-  Density_Inf      = config->GetDensity_FreeStreamND();
-  Pressure_Inf     = config->GetPressure_FreeStreamND();
-	Temperature_Inf  = config->GetTemperature_FreeStreamND();
+  Density_Inf     = config->GetDensity_FreeStreamND();
+  Pressure_Inf    = config->GetPressure_FreeStreamND();
+	Temperature_Inf = config->GetTemperature_FreeStreamND();
 
-  Velocity_Inf     = RealVec(config->GetVelocity_FreeStreamND(),config->GetVelocity_FreeStreamND() + nDim);
-  MassFrac_Inf     = RealVec(config->GetMassFrac_FreeStream(),config->GetMassFrac_FreeStream() + nSpecies);
+  Velocity_Inf    = RealVec(config->GetVelocity_FreeStreamND(),config->GetVelocity_FreeStreamND() + nDim);
+  MassFrac_Inf    = RealVec(config->GetMassFrac_FreeStream(),config->GetMassFrac_FreeStream() + nSpecies);
 
-  Viscosity_Inf    = config->GetViscosity_FreeStreamND();
+  Viscosity_Inf   = config->GetViscosity_FreeStreamND();
+
+  Tke_Inf         = config->GetTke_FreeStreamND();
+
+  Prandtl_Lam     = config->GetPrandtl_Lam();
+  Prandtl_Turb    = config->GetPrandtl_Turb();
 
   node_infty = new CReactiveNSVariable(Pressure_Inf, MassFrac_Inf, Velocity_Inf, Temperature_Inf,
                                        nDim, nVar, nSpecies, nPrimVar, nPrimVarGrad, nPrimVarLim, config);
@@ -2833,7 +2847,7 @@ unsigned long CReactiveNSSolver::SetPrimitive_Variables(CSolver** solver_contain
    if(turbulent) {
      eddy_visc = solver_container[TURB_SOL]->node[iPoint]->GetmuT();
      if(tkeNeeded)
-      turb_ke = solver_container[TURB_SOL]->node[iPoint]->GetSolution(TURB_KINE_INDEX);
+      turb_ke = solver_container[TURB_SOL]->node[iPoint]->GetSolution(CReactiveTurbVariable::TURB_KINE_INDEX);
    }
 
    /*--- Initialize the non-physical points vector ---*/
@@ -2913,7 +2927,7 @@ void CReactiveNSSolver::SetTime_Step(CGeometry* geometry, CSolver** solver_conta
   su2double Local_Delta_Time, Global_Delta_Time = 1E6;
   su2double Local_Delta_Time_Visc;
   su2double Mean_SoundSpeed, Mean_ProjVel;
-  su2double Mean_LaminarVisc, Mean_ThermalCond, Mean_Density, Mean_CV;
+  su2double Mean_LaminarVisc, Mean_ThermalCond, Mean_Density, Mean_CV, Mean_EddyVisc, Mean_Gamma;
   su2double Lambda, Lambda_1, Lambda_2;
   const su2double K_v = 0.5;
   const su2double FOUR_OVER_THREE = 4.0/3.0;
@@ -2957,6 +2971,7 @@ void CReactiveNSSolver::SetTime_Step(CGeometry* geometry, CSolver** solver_conta
     Mean_Density = 0.5*(node[iPoint]->GetDensity() + node[jPoint]->GetDensity());
     Mean_ThermalCond = 0.5*(node[iPoint]->GetThermalConductivity() + node[jPoint]->GetThermalConductivity());
     Mean_LaminarVisc = 0.5*(node[iPoint]->GetLaminarViscosity() + node[jPoint]->GetLaminarViscosity());
+    Mean_EddyVisc    = 0.5*(node[iPoint]->GetEddyViscosity() + node[jPoint]->GetEddyViscosity());
     for(iSpecies = 0; iSpecies < nSpecies; ++iSpecies) {
       Ys_i[iSpecies] = node[iPoint]->GetMassFraction(iSpecies);
       Ys_j[iSpecies] = node[jPoint]->GetMassFraction(iSpecies);
@@ -2983,8 +2998,10 @@ void CReactiveNSSolver::SetTime_Step(CGeometry* geometry, CSolver** solver_conta
       node[jPoint]->AddMax_Lambda_Inv(Lambda);
 
     /*--- Determine the viscous spectral radius and apply it to the control volume ---*/
-  	Lambda_1 = FOUR_OVER_THREE*Mean_LaminarVisc;
-  	Lambda_2 = Mean_ThermalCond/Mean_CV;
+  	Lambda_1 = FOUR_OVER_THREE*(Mean_LaminarVisc + Mean_EddyVisc);
+    //Mean_Gamma = 0.5*(library->ComputeGamma(dim_temp_i) + library->ComputeGamma(dim_temp_j));
+    Lambda_2 = (1.0 + (Prandtl_Lam/Prandtl_Turb)*(Mean_EddyVisc/Mean_LaminarVisc))*(Mean_Gamma*Mean_LaminarVisc/Prandtl_Lam);
+  	//Lambda_2 = Mean_ThermalCond/Mean_CV;
   	Lambda = (Lambda_1 + Lambda_2)*Area*Area/Mean_Density;
   	if(geometry->node[iPoint]->GetDomain())
       node[iPoint]->AddMax_Lambda_Visc(Lambda);
@@ -3016,14 +3033,15 @@ void CReactiveNSSolver::SetTime_Step(CGeometry* geometry, CSolver** solver_conta
         Mean_Density = node[iPoint]->GetDensity();
         Mean_ThermalCond = node[iPoint]->GetThermalConductivity();
         Mean_LaminarVisc = node[iPoint]->GetLaminarViscosity();
+        Mean_EddyVisc = node[iPoint]->GetEddyViscosity();
         for(iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
           Ys_i[iSpecies] = node[iPoint]->GetMassFraction(iSpecies);
         /*
-        su2double dim_temp = node[iPoint]->GetTemperature()*config->GetTemperature_Ref();
+        dim_temp_i = node[iPoint]->GetTemperature()*config->GetTemperature_Ref();
         bool US_System = (config->GetSystemMeasurements() == US);
         if(US_System)
           dim_temp_i *= 5.0/9.0;
-        Mean_CV = library->ComputeCV(node[iPoint]->GetTemperature(),Ys_i);
+        Mean_CV = library->ComputeCV(dim_temp_i,Ys_i);
         Mean_CV /= config->GetEnergy_Ref()*config->GetTemperature_Ref():
         if(US_System)
           Mean_CV *= 3.28084*3.28084*9.0/5.0;
@@ -3036,7 +3054,9 @@ void CReactiveNSSolver::SetTime_Step(CGeometry* geometry, CSolver** solver_conta
 
         /*--- Viscous contribution ---*/
       	Lambda_1 = FOUR_OVER_THREE*Mean_LaminarVisc;
-      	Lambda_2 = Mean_ThermalCond/Mean_CV;
+        //Mean_Gamma = library->ComputeGamma(dim_temp_i);
+        Lambda_2 = (1.0 + (Prandtl_Lam/Prandtl_Turb)*(Mean_EddyVisc/Mean_LaminarVisc))*(Mean_Gamma*Mean_LaminarVisc/Prandtl_Lam);
+      	//Lambda_2 = Mean_ThermalCond/Mean_CV;
       	Lambda = (Lambda_1 + Lambda_2)*Area*Area/Mean_Density;
       	if(geometry->node[iPoint]->GetDomain())
           node[iPoint]->AddMax_Lambda_Visc(Lambda);
@@ -3295,11 +3315,15 @@ void CReactiveNSSolver::Viscous_Residual(CGeometry* geometry, CSolver** solution
       numerics->SetTurbKineticEnergy(solution_container[TURB_SOL]->node[iPoint]->GetSolution(CReactiveTurbVariable::TURB_KINE_INDEX),
                                      solution_container[TURB_SOL]->node[jPoint]->GetSolution(CReactiveTurbVariable::TURB_KINE_INDEX));
 
-    /*--- Laminar viscosity ---*/
+    /*--- Laminar and eddy viscosity ---*/
     numerics->SetLaminarViscosity(node[iPoint]->GetLaminarViscosity(), node[jPoint]->GetLaminarViscosity());
+    numerics->SetEddyViscosity(node[iPoint]->GetEddyViscosity(), node[jPoint]->GetEddyViscosity());
 
     /*--- Thermal conductivity ---*/
-    numerics->SetThermalConductivity(node[iPoint]->GetThermalConductivity(), node[jPoint]->GetThermalConductivity());
+    numerics->SetThermalConductivity(node[iPoint]->GetThermalConductivity() +
+                                     node[iPoint]->GetSpecificHeatCp()*node[iPoint]->GetEddyViscosity()/GetPrandtl_Turb(),
+                                     node[jPoint]->GetThermalConductivity() +
+                                     node[jPoint]->GetSpecificHeatCp()*node[jPoint]->GetEddyViscosity()/GetPrandtl_Turb());
 
     /*--- Species binary coefficients ---*/
     auto avggrad_numerics = dynamic_cast<CAvgGradReactive_Flow*>(numerics);
@@ -3688,6 +3712,7 @@ void CReactiveNSSolver::BC_Isothermal_Wall(CGeometry* geometry, CSolver** solver
       /*--- Extract the interior temperature and the thermal conductivity for the boundary node ---*/
       Tj   = node[jPoint]->GetTemperature();
       ktr  = node[iPoint]->GetThermalConductivity();
+      ktr += node[iPoint]->GetSpecificHeatCp()*node[iPoint]->GetEddyViscosity()/Prandtl_Turb;
 
       /*--- Compute normal gradient ---*/
       dTdn = (Twall - Tj)/dij;

@@ -150,12 +150,15 @@ public:
    * \param[in] val_grad_primvar - Gradient of the primitive variables.
    * \param[in] val_normal - Normal vector, the norm of the vector is the area of the face.
    * \param[in] val_viscosity - Laminar viscosity.
+   * \param[in] val_eddy_viscosity - Eddy viscosity.
    * \param[in] val_thermal_conductivity - Thermal Conductivity.
+   * \param[in] val_turb_ke - Turbulent kinetic energy.
    * \param[in] val_diffusioncoeff - Effective diffusion coefficients for each species in the mixture.
    * \param[in] config - Definition of the particular problem
    */
   virtual void GetViscousProjFlux(const Vec& val_primvar, const RealMatrix& val_grad_primvar, SmartArr val_normal,
-                                  const su2double val_viscosity, const su2double val_therm_conductivity,
+                                  const su2double val_viscosity, const su2double val_eddy_viscosity,
+                                  const su2double val_therm_conductivity, const su2double val_turb_ke,
                                   const RealVec& val_diffusioncoeff, CConfig* config);
 
   /*!
@@ -164,12 +167,15 @@ public:
    * \param[in] val_grad_primvar - Gradient of the primitive variables.
    * \param[in] val_normal - Normal vector, the norm of the vector is the area of the face.
    * \param[in] val_viscosity - Laminar viscosity.
+   * \param[in] val_eddy_viscosity - Eddy viscosity.
    * \param[in] val_thermal_conductivity - Thermal Conductivity.
+   * \param[in] val_turb_ke - Turbulent kinetic energy.
    * \param[in] val_Dij - Harmonic average of binary diffusion coefficients.
    * \param[in] config - Definition of the particular problem
    */
   virtual void GetViscousProjFlux(const Vec& val_primvar, const RealMatrix& val_grad_primvar, SmartArr val_normal,
-                                  const su2double val_viscosity, const su2double val_therm_conductivity,
+                                  const su2double val_viscosity, const su2double val_eddy_viscosity,
+                                  const su2double val_therm_conductivity, const su2double val_turb_ke,
                                   const RealMatrix& val_Dij, CConfig* config);
 
   /*!
@@ -178,7 +184,9 @@ public:
    * \param[in] val_Mean_GradPriVar - Mean value of the gradient of the primitive variables.
    * \param[in] val_diffusion_coeff - Value of diffusion coefficients for each species
    * \param[in] val_laminar_viscosity - Value of the laminar viscosity.
+   * \param[in] val_eddy_viscosity - Value of the eddy viscosity.
    * \param[in] val_thermal_conductivity - Value of the thermal conductivity.
+   * \param[in] val_turb_ke - Value of the turbulent kinetic energy.
    * \param[in] val_dist_ij - Distance between the points.
    * \param[in] val_normal - Normal vector
    * \param[in] val_dS - Area of the face between two nodes.
@@ -189,7 +197,8 @@ public:
   */
   virtual void GetViscousProjJacs(const Vec& val_Mean_PrimVar, const RealMatrix& val_Mean_GradPrimVar,
                                   const RealVec& val_diffusion_coeff, const su2double val_laminar_viscosity,
-                                  const su2double val_thermal_conductivity, const su2double val_dist_ij, SmartArr val_normal,
+                                  const su2double val_eddy_viscosity, const su2double val_thermal_conductivity,
+                                  const su2double val_turb_ke, const su2double val_dist_ij, SmartArr val_normal,
                                   const su2double val_dS, su2double* val_Proj_Visc_Flux, su2double** val_Proj_Jac_Tensor_i,
                                   su2double** val_Proj_Jac_Tensor_j, CConfig* config);
 

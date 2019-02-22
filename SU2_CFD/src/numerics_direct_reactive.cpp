@@ -254,7 +254,8 @@ CAvgGradReactive_Flow::Vec CAvgGradReactive_Flow::Solve_SM(const su2double val_d
 //
 //
 void CAvgGradReactive_Flow::GetViscousProjFlux(const Vec& val_primvar, const RealMatrix& val_grad_primvar, SmartArr val_normal,
-                                               const su2double val_viscosity, const su2double val_therm_conductivity,
+                                               const su2double val_viscosity, const su2double val_eddy_viscosity,
+                                               const su2double val_therm_conductivity, const su2double val_turb_ke,
                                                const RealVec& val_diffusion_coeff, CConfig* config) {
   SU2_Assert(Proj_Flux_Tensor != NULL, "The array for the projected viscous flux has not been allocated");
   SU2_Assert(Flux_Tensor != NULL, "The matrix for the viscous flux tensor has not been allocated");
@@ -263,7 +264,7 @@ void CAvgGradReactive_Flow::GetViscousProjFlux(const Vec& val_primvar, const Rea
   /*--- We need a non-standard primitive vector with mass fractions instead of partial densities ---*/
  	unsigned short iSpecies, iVar, iDim, jDim;
   su2double mu, ktr, div_vel;
-  su2double rho, T;
+  su2double rho, T, ke;
 
   /*--- Initialize ---*/
   std::fill(Proj_Flux_Tensor,Proj_Flux_Tensor + nVar,0.0);
@@ -271,9 +272,10 @@ void CAvgGradReactive_Flow::GetViscousProjFlux(const Vec& val_primvar, const Rea
     std::fill(Flux_Tensor[iVar],Flux_Tensor[iVar] + nDim, 0.0);
 
   /*--- Rename for convenience ---*/
-  mu  = val_viscosity;
+  mu  = val_viscosity + val_eddy_viscosity;
   ktr = val_therm_conductivity;
   rho = val_primvar[CReactiveNSVariable::RHO_INDEX_PRIM];
+  ke  = val_turb_ke;
   T   = val_primvar[CReactiveNSVariable::T_INDEX_PRIM];
 
   /*--- Compute partial enthalpies ---*/
@@ -305,7 +307,7 @@ void CAvgGradReactive_Flow::GetViscousProjFlux(const Vec& val_primvar, const Rea
   for(iDim = 0; iDim < nDim; ++iDim) {
     for(jDim = 0; jDim < nDim; ++jDim)
       tau[iDim][jDim] += mu*(val_grad_primvar(VX_INDEX_AVGGRAD + jDim,iDim) + val_grad_primvar(VX_INDEX_AVGGRAD + iDim,jDim));
-    tau[iDim][iDim] -= TWO3*mu*div_vel;
+    tau[iDim][iDim] -= TWO3*(mu*div_vel + rho*ke);
   }
 
   /*--- Populate entries in the viscous flux vector ---*/
@@ -350,7 +352,8 @@ void CAvgGradReactive_Flow::GetViscousProjFlux(const Vec& val_primvar, const Rea
 //
 //
 void CAvgGradReactive_Flow::GetViscousProjFlux(const Vec& val_primvar, const RealMatrix& val_grad_primvar, SmartArr val_normal,
-                                               const double val_viscosity, const double val_thermal_conductivity,
+                                               const su2double val_viscosity, const su2double val_eddy_viscosity,
+                                               const su2double val_thermal_conductivity, const su2double val_turb_ke,
                                                const RealMatrix& val_Dij, CConfig* config) {
   SU2_Assert(Proj_Flux_Tensor != NULL, "The array for the projected viscous flux has not been allocated");
   SU2_Assert(Flux_Tensor != NULL, "The matrix for the viscous flux tensor has not been allocated");
@@ -359,7 +362,7 @@ void CAvgGradReactive_Flow::GetViscousProjFlux(const Vec& val_primvar, const Rea
   /*--- We need a non-standard primitive vector with molar fractions instead of partial densities ---*/
  	unsigned short iSpecies, iVar, iDim, jDim;
   su2double mu, ktr, div_vel;
-  su2double rho, T;
+  su2double rho, T, ke;
 
   /*--- Initialize ---*/
   std::fill(Proj_Flux_Tensor,Proj_Flux_Tensor + nVar,0.0);
@@ -368,8 +371,9 @@ void CAvgGradReactive_Flow::GetViscousProjFlux(const Vec& val_primvar, const Rea
 
   /*--- Rename for convenience ---*/
   rho = val_primvar[CReactiveNSVariable::RHO_INDEX_PRIM];
-  mu  = val_viscosity;
+  mu  = val_viscosity + val_eddy_viscosity;
   ktr = val_thermal_conductivity;
+  ke  = val_turb_ke;
   T = val_primvar[CReactiveNSVariable::T_INDEX_PRIM];
 
   /*--- Compute partial enthalpies ---*/
@@ -400,7 +404,7 @@ void CAvgGradReactive_Flow::GetViscousProjFlux(const Vec& val_primvar, const Rea
   for(iDim = 0 ; iDim < nDim; ++iDim) {
     for(jDim = 0 ; jDim < nDim; ++jDim)
       tau[iDim][jDim] += mu*(val_grad_primvar(VX_INDEX_AVGGRAD + jDim,iDim) + val_grad_primvar(VX_INDEX_AVGGRAD + iDim,jDim));
-    tau[iDim][iDim] -= TWO3*mu*div_vel;
+    tau[iDim][iDim] -= TWO3*(mu*div_vel + rho*ke);
   }
 
   /*--- Populate entries in the viscous flux tensor ---*/
@@ -449,7 +453,8 @@ void CAvgGradReactive_Flow::GetViscousProjFlux(const Vec& val_primvar, const Rea
 //
 void CAvgGradReactive_Flow::GetViscousProjJacs(const Vec& val_Mean_PrimVar, const RealMatrix& val_Mean_GradPrimVar,
                                                const RealVec& val_diffusion_coeff, const su2double val_laminar_viscosity,
-                                               const su2double val_thermal_conductivity, const su2double val_dist_ij, SmartArr val_normal,
+                                               const su2double val_eddy_viscosity, const su2double val_thermal_conductivity,
+                                               const su2double val_turb_ke, const su2double val_dist_ij, SmartArr val_normal,
                                                const su2double val_dS, su2double* val_Proj_Visc_Flux, su2double** val_Proj_Jac_Tensor_i,
                                                su2double** val_Proj_Jac_Tensor_j, CConfig* config) {
 
@@ -476,11 +481,15 @@ void CAvgGradReactive_Flow::ComputeResidual(su2double* val_residual, su2double**
   unsigned short iVar, iDim, jDim, iSpecies; /*!< \brief Indexes for iterations. */
 
   su2double Mean_Laminar_Viscosity; /*!< \brief Mean value of laminar viscosity. */
+  su2double Mean_Eddy_Viscosity; /*!< \brief Mean value of eddy viscosity. */
+  su2double Mean_turb_ke; /*!< \brief Mean value of turublent kinetic energy. */
   su2double Mean_Thermal_Conductivity;  /*!< \brief Mean value of thermal conductivity. */
 
   /*--- Mean transport coefficients ---*/
   Mean_Laminar_Viscosity = 2.0/(1.0/Laminar_Viscosity_i + 1.0/Laminar_Viscosity_j);
+  Mean_Eddy_Viscosity = 2.0/(1.0/Eddy_Viscosity_i + 1.0/Eddy_Viscosity_j);
   Mean_Thermal_Conductivity = 2.0/(1.0/Thermal_Conductivity_i + 1.0/Thermal_Conductivity_j);
+  Mean_turb_ke = 2.0/(1.0/turb_ke_i + 1.0/turb_ke_j);
   Mean_Dij = 2.0/(Dij_i.cwiseInverse() + Dij_j.cwiseInverse()).array();
 
   /*--- Copy primitive varaibles ---*/
@@ -561,8 +570,8 @@ void CAvgGradReactive_Flow::ComputeResidual(su2double* val_residual, su2double**
   }
 
   /*--- Get projected flux tensor ---*/
-  GetViscousProjFlux(Mean_PrimVar, Mean_GradPrimVar, Common::wrap_in_unique(Normal), Mean_Laminar_Viscosity,
-                     Mean_Thermal_Conductivity, Mean_Dij, config);
+  GetViscousProjFlux(Mean_PrimVar, Mean_GradPrimVar, Common::wrap_in_unique(Normal), Mean_Laminar_Viscosity, Mean_Eddy_Viscosity,
+                     Mean_Thermal_Conductivity, Mean_turb_ke, Mean_Dij, config);
 
 	/*--- Update viscous residual with the species projected flux ---*/
   std::copy(Proj_Flux_Tensor, Proj_Flux_Tensor + nVar, val_residual);

@@ -28,7 +28,7 @@ CReactiveEulerVariable::CReactiveEulerVariable():CVariable() {
 //
 CReactiveEulerVariable::CReactiveEulerVariable(unsigned short val_nDim, unsigned short val_nvar, unsigned short val_nSpecies,
                                                unsigned short val_nprimvar, unsigned short val_nprimvargrad, unsigned short val_nprimvarlim,
-                                               CConfig* config): CVariable(val_nDim,val_nvar,config) {
+                                               CConfig* config): CVariable(val_nDim,val_nvar,config), Cp() {
   nSpecies = val_nSpecies;
   nPrimVar = val_nprimvar;
   nPrimVarGrad = val_nprimvargrad;
@@ -100,8 +100,14 @@ CReactiveEulerVariable::CReactiveEulerVariable(const su2double val_pressure, con
   Solution[RHOE_INDEX_SOL] = Solution_Old[RHOE_INDEX_SOL] = rhoE;
 
   /*--- Assign primitive variables ---*/
-  Primitive[T_INDEX_PRIM] = T;
-  Primitive[P_INDEX_PRIM] = P;
+  Primitive.at(T_INDEX_PRIM) = T;
+  Primitive.at(P_INDEX_PRIM) = P;
+
+  /*--- Set specific heat at constant pressure ---*/
+  //Cp = library->ComputeCP(dim_temp,val_massfrac);
+  Cp /= config->GetEnergy_Ref()*config->GetTemperature_Ref();
+  if(US_System)
+    Cp *= 3.28084*3.28084*9.0/5.0;
 }
 
 //
@@ -124,8 +130,20 @@ CReactiveEulerVariable::CReactiveEulerVariable(const RealVec& val_solution, unsi
   std::copy(val_solution.cbegin(),val_solution.cend(),Solution_Old);
 
   /*--- Initialize T and P to the free stream for Secant method ---*/
-  Primitive[T_INDEX_PRIM] = config->GetTemperature_FreeStream();
-  Primitive[P_INDEX_PRIM] = config->GetPressure_FreeStream();
+  Primitive.at(T_INDEX_PRIM) = config->GetTemperature_FreeStream();
+  Primitive.at(P_INDEX_PRIM) = config->GetPressure_FreeStream();
+
+  /*--- Set specific heat at constant pressure ---*/
+  su2double dim_temp = Primitive[T_INDEX_PRIM]*config->GetTemperature_Ref();
+  for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
+    Ys[iSpecies] = Solution[RHOS_INDEX_SOL]/Solution[RHO_INDEX_SOL];
+  bool US_System = (config->GetSystemMeasurements() == US);
+  if(US_System)
+    dim_temp *= 5.0/9.0;
+  //Cp = library->ComputeCP(dim_temp,Ys);
+  Cp /= config->GetEnergy_Ref()*config->GetTemperature_Ref();
+  if(US_System)
+    Cp *= 3.28084*3.28084*9.0/5.0;
 }
 
 //
@@ -155,9 +173,20 @@ bool CReactiveEulerVariable::SetPrimVar(CConfig* config) {
   bool nonPhys = Cons2PrimVar(config, Solution, Primitive.data());
   if(nonPhys) {
     std::copy(Solution_Old,Solution_Old + nVar,Solution);
-    bool check_old = Cons2PrimVar(config,Solution,Primitive.data());
+    bool check_old = Cons2PrimVar(config, Solution, Primitive.data());
     SU2_Assert(check_old == true, "Neither the old solution is feasible to set primitive variables: problem unsolvable");
   }
+
+  /*--- Set specific heat at constant pressure ---*/
+  su2double dim_temp = Primitive.at(T_INDEX_PRIM)*config->GetTemperature_Ref();
+  bool US_System = (config->GetSystemMeasurements() == US);
+  if(US_System)
+    dim_temp *= 5.0/9.0;
+  //Cp = library->ComputeCP(dim_temp,GetMassFractions());
+  Cp /= config->GetEnergy_Ref()*config->GetTemperature_Ref();
+  if(US_System)
+    Cp *= 3.28084*3.28084*9.0/5.0;
+
   return nonPhys;
 }
 
@@ -575,7 +604,7 @@ bool CReactiveNSVariable::SetPrimVar(CConfig* config) {
  */
 //
 //
-bool CReactiveEulerVariable::Cons2PrimVar(CConfig* config, su2double* U, su2double* V, su2double turb_ke) {
+bool CReactiveNSVariable::Cons2PrimVar(CConfig* config, su2double* U, su2double* V, su2double turb_ke) {
   SU2_Assert(U != NULL,"The array of conserved varaibles has not been allocated");
   SU2_Assert(V != NULL,"The array of primitive varaibles has not been allocated");
 
@@ -771,8 +800,15 @@ bool CReactiveNSVariable::SetPrimVar(su2double eddy_visc, su2double turb_ke, CCo
     dim_press *= 47.8803;
   }
 
-  /*--- Compute transport properties --- */
   Ys = GetMassFractions();
+
+  /*--- Compute specific heat at constant pressure --- */
+  //Cp = library->ComputeCP(dim_temp,Ys);
+  Cp /= config->GetEnergy_Ref()*config->GetTemperature_Ref();
+  if(US_System)
+    Cp *= 3.28084*3.28084*9.0/5.0;
+
+  /*--- Compute transport properties --- */
   //Laminar_Viscosity = library->GetLambda(dim_temp,Ys)/config->GetViscosity_Ref();
   if(US_System)
     Laminar_Viscosity *= 0.02088553108;

@@ -24,6 +24,8 @@ protected:
   static unsigned short nSpecies; /*!< \brief Number of species in the mixture. */
   unsigned short nPrimVarLim; /*!< \brief Number of primitive variables to limit in the problem. */
 
+  su2double Cp;               /*!< \brief Specific heat at constant pressure. */
+
   /*--- Primitive variable definition ---*/
   RealVec    Primitive; /*!< \brief Primitive variables (T,vx,vy,vz,P,rho,h,a,Y1,...YNs) in compressible flows. */
   SU2Matrix  Gradient_Primitive; /*!< \brief Gradient of the primitive variables (T, vx, vy, vz, P, rho). */
@@ -453,6 +455,23 @@ public:
    * \param[in] val_velocity - Pointer to the velocity.
    */
   void SetVelocity_Old(su2double* val_velocity) override;
+
+  /*!
+   * \brief Get the laminar viscosity of the mixture.
+   * \return Laminar viscoisty of the mixture
+   */
+  inline su2double GetSpecificHeatCp(void) override {
+    return Cp;
+  }
+
+  /*!
+   * \brief Get the laminar viscosity of the mixture.
+   * \return Laminar viscoisty of the mixture
+   */
+  inline void SetSpecificHeatCp(su2double val_Cp) override {
+    Cp = val_Cp;
+  }
+
 };
 const unsigned short CReactiveEulerVariable::P_INDEX_PRIM = CReactiveEulerVariable::VX_INDEX_PRIM + CReactiveEulerVariable::nDim;
 const unsigned short CReactiveEulerVariable::RHO_INDEX_PRIM = CReactiveEulerVariable::P_INDEX_PRIM + 1;

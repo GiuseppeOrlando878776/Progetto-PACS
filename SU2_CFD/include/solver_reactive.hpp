@@ -342,6 +342,11 @@ public:
     * \param[in] config - Definition of the particular problem.
     */
    void ImplicitEuler_Iteration(CGeometry* geometry, CSolver** solver_container, CConfig* config) override;
+
+   /*!
+    * \brief Get turbulent Prandtl number.
+    */
+   virtual su2double GetPrandtl_Turb() {}
 };
 
 /*! \class CReactiveNSSolver
@@ -352,6 +357,11 @@ class CReactiveNSSolver:public CReactiveEulerSolver {
 protected:
 
   su2double Viscosity_Inf;	/*!< \brief Viscosity at the infinity. */
+
+  su2double Tke_Inf;	/*!< \brief Turbulent kinetic energy at infinity. */
+
+  su2double Prandtl_Lam,    /*!< \brief Laminar Prandtl number. */
+            Prandtl_Turb;   /*!< \brief Turbulent Prandtl number. */
 
 public:
 
@@ -423,7 +433,8 @@ public:
    * \param[in] iMesh - Index of the mesh in multigrid computations.
    * \param[in] Iteration - Index of the current iteration.
    */
-   void SetTime_Step(CGeometry* geometry, CSolver** solver_container, CConfig* config, unsigned short iMesh, unsigned long Iteration) override;
+   void SetTime_Step(CGeometry* geometry, CSolver** solver_container, CConfig* config,
+                     unsigned short iMesh, unsigned long Iteration) override;
 
   /*!
    * \brief Compute the viscous residuals.
@@ -460,6 +471,21 @@ public:
    */
   void BC_Isothermal_Wall(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics,
                           CNumerics* visc_numerics, CConfig* config,unsigned short val_marker) override;
+
+  /*!
+   * \brief Get turbulent kinetic energy at infinity.
+   */
+  inline su2double GetTke_Inf(void) override {
+    return Tke_Inf;
+  }
+
+  /*!
+   * \brief Get turbulent Prandtl number.
+   */
+  inline su2double GetPrandtl_Turb(void) override {
+    return Prandtl_Turb;
+  }
+
 };
 
 #endif
