@@ -16,13 +16,20 @@ namespace Framework  {
   public:
     typedef Common::ConcreteProvider<PhysicalChemicalLibrary> Provider;
     typedef const std::string& Arg1;
+    typedef const std::string& Arg2;
 
   public:
+    /*!
+     * \brief Class constructor(one argument).
+     */
+    PhysicalChemicalLibrary(Arg1 config_name): Config_File(config_name), Lib_Path(),
+                                               Lib_Setup(false), nSpecies(), nReactions() {}
 
     /*!
-     * \brief Class constructor.
+     * \brief Class constructor(two arguments).
      */
-    PhysicalChemicalLibrary(const std::string& name): Config_File(name), Lib_Setup(false), nSpecies(), nReactions() {};
+    PhysicalChemicalLibrary(Arg1 config_name, Arg2 lib_path_name): Config_File(config_name), Lib_Path(lib_path_name),
+                                                                   Lib_Setup(false), nSpecies(), nReactions() {}
 
     /*!
      * \brief Default destructor.
@@ -73,24 +80,29 @@ namespace Framework  {
     }
 
     /*!
-     * Set the constant of gases for each species [J/(Kmol*K)]
+     * Set the gas constant for each species [J/(Kg*K)]
     */
     virtual void SetRiGas(void) = 0;
 
     /*!
-     * \brief Get the constant of perfect gases for the mixture [J/(Kmol*K)]
+     * Get the gas constant for each species [J/(Kg*K)]
+    */
+    Vector void GetRiGas(void) const = 0;
+
+    /*!
+     * \brief Get the gas constant for the mixture [J/(Kg*K)]
     */
     virtual double GetRgas(void) const = 0;
 
     /*!
-     * \brief Set the constant of perfect gases for the mixture [J/(Kmol*K)]
-     * \param[in] ys - The Vectortor of the mass fractions of species (input)
+     * \brief Set the gas constant for the mixture [J/(Kg*K)]
+     * \param[in] ys - The vector of the mass fractions of species (input)
     */
     virtual void SetRgas(const Vector& ys) = 0;
 
     /*!
-     * \brief Compute the constant of perfect gases for the mixture [J/(Kmol*K)]
-     * \param[in] ys - The Vectortor of the mass fractions of species (input)
+     * \brief Compute the gas constant for the mixture [J/(Kg*K)]
+     * \param[in] ys - The vector of the mass fractions of species (input)
     */
     virtual double ComputeRgas(const Vector& ys) = 0;
 
@@ -102,45 +114,45 @@ namespace Framework  {
     /*!
      * Set the molar fractions of elements Xn.This function should be called before getting
      * thermodynamic quantities or transport properties.
-     * \param[in] xs - The Vectortor of the mass fractions of elements
+     * \param[in] xs - The vector of the mass fractions of elements
     */
     virtual void SetMolarFractions(const Vector& xs) = 0;
 
     /*!
      * Set the mass fractions. This function should be called before getting
      * thermodynamic quantities or transport properties.
-     * \param[in] ys - The Vectortor of the mass fractions of species
+     * \param[in] ys - The vector of the mass fractions of species
     */
     virtual void SetMassFractions(const Vector& ys) = 0;
 
     /*!
      * \brief Set the molar fractions from mass fractions.
-     * \param[in] ys - The Vectortor of the mass fractions of species (input)
+     * \param[in] ys - The vector of the mass fractions of species (input)
     */
     virtual void SetMolarFromMass(const Vector& ys) = 0;
 
     /*!
      * \brief Get the molar fractions from mass fractions.
-     * \param[in] ys - The Vectortor of the mass fractions of species (input)
+     * \param[in] ys - The vector of the mass fractions of species (input)
     */
     virtual Vector GetMolarFromMass(const Vector& ys) = 0;
 
     /*!
      * \brief Get the mass fractions from molar fractions.
-     * \param[in] xs - The Vectortor of the molar fractions of species (input)
+     * \param[in] xs - The vector of the molar fractions of species (input)
     */
     virtual void SetMassFromMolar(const Vector& xs) = 0;
 
     /*!
      * \brief Get the mass fractions from molar fractions.
-     * \param[in] xs - The Vectortor of the molar fractions of species (input)
+     * \param[in] xs - The vector of the molar fractions of species (input)
     */
     virtual Vector GetMassFromMolar(const Vector& xs) = 0;
 
     /*!
      * \brief Compute the specific heat ratio and the speed of sound.
      * \param[in] temp - temperature
-     * \param[in] ys - The Vectortor of the mass fractions of species
+     * \param[in] ys - The vector of the mass fractions of species
      * \param[out] gamma - specific heat ratio
      * \param[out] sound_speed - speed of sound
     */
@@ -149,37 +161,61 @@ namespace Framework  {
     /*!
      * \brief Computes the frozen specific heat ratio.
      * \param[in] temp - temperature
-     * \param[in] ys - The Vectortor of the mass fractions of species
+     * \param[in] ys - The vector of the mass fractions of species
      */
     virtual double ComputeFrozenGamma(const double temp, const Vector& ys) = 0;
 
     /*!
      * \brief Computes the frozen speed of sound.
      * \param[in] temp - temperature
-     * \param[in] ys - The Vectortor of the mass fractions of species
+     * \param[in] ys - The vector of the mass fractions of species
     */
     virtual double ComputeFrozenSoundSpeed(const double temp, const Vector& ys) = 0;
 
     /*!
      * \brief Computes the frozen speed of sound.
      * \param[in] temp - temperature
-     * \param[in] ys - The Vectortor of the mass fractions of species
+     * \param[in] gamma - specific heat ratio
+     * \param[in] ys - The vector of the mass fractions of species
+    */
+    virtual double ComputeFrozenSoundSpeed_FromGamma(const double temp, const double gamma, const Vector& ys) = 0;
+
+    /*!
+     * \brief Computes the frozen speed of sound.
+     * \param[in] temp - temperature
+     * \param[in] ys - The vector of the mass fractions of species
      * \param[in] press - pressure
      * \param[in] rho - density
     */
     virtual double ComputeFrozenSoundSpeed(const double temp, const Vector& ys, const double press, const double rho) = 0;
 
     /*!
+     * \brief Computes the frozen speed of sound.
+     * \param[in] gamma - specific heat ratio
+     * \param[in] ys - The vector of the mass fractions of species
+     * \param[in] press - pressure
+     * \param[in] rho - density
+    */
+    virtual double ComputeFrozenSoundSpeed_FromGamma(const double gamma, const Vector& ys, const double press, const double rho) = 0;
+
+    /*!
+     * \brief Computes the frozen speed of sound.
+     * \param[in] temp - temperature
+     * \param[in] ys - The vector of the mass fractions of species
+    */
+    virtual double ComputeFrozenSoundSpeed(const double temp, const Vector& ys) = 0;
+
+    /*!
      * \brief Compute the density, the enthalpy and the internal energy
      * \param[in] temp - temperature
      * \param[in] pressure - pressure
      * \param[in] ys - mass fractions
-     * \param[out] dhe - Vectortor with density, enthalpy, energy (output) for thermal equilibrium
+     * \param[out] dhe - vector with density, enthalpy, energy (output) for thermal equilibrium
     */
     virtual void Density_Enthalpy_Energy(const double temp, const double pressure, const Vector& ys, RealVec& dhe) = 0;
 
     /*!
-     * \brief Compute the density given temperature and pressure.
+     * \brief Compute the pressure given temperature and density.
      * \param[in] temp - temperature
      * \param[in] rho - density
      * \param[in] ys - mass fractions
@@ -188,11 +224,27 @@ namespace Framework  {
 
     /*!
      * \brief Compute the density given temperature and pressure.
-     * \param[in] temp - temperature
      * \param[in] pressure - pressure
+     * \param[in] temp - temperature
      * \param[in] ys - mass fractions
     */
-    virtual double ComputeDensity(const double temp, const double pressure, const Vector& ys) = 0;
+    virtual double ComputeDensity(const double pressure, const double temp, const Vector& ys) = 0;
+
+    /*!
+     * \brief Compute the temperature given density and pressure.
+     * \param[in] pressure - pressure
+     * \param[in] rho - density
+     * \param[in] ys - mass fractions
+    */
+    virtual double ComputeTemperature(const double pressure, const double rho, const Vector& ys) = 0;
+
+    /*!
+     * \brief Compute the density given sound speed and gamma.
+     * \param[in] sound_speed2 - squared sound speed
+     * \param[in] gamma - specific heats ratio
+     * \param[in] ys - mass fractions
+    */
+    virtual double ComputeTemperature_FromGamma(const double sound_speed2, const double gamma, const Vector& ys) = 0;
 
     /*!
      * \brief Compute the internal energy per unit of mass at given temperature and pressure.
@@ -202,12 +254,12 @@ namespace Framework  {
     virtual double ComputeEnergy(const double temp, const Vector& ys) = 0;
 
     /*!
-     * \brief Returns the formation enthalpies per unit mass of species
+     * \brief Return the formation enthalpies per unit mass of species
     */
     virtual Vector GetFormationEnthalpies(void) const = 0;
 
     /*!
-     * \brief Returns the static enthalpy per unit of mass
+     * \brief Return the static enthalpy per unit of mass
      * \param[in] temp - the mixture temperature
      * \param[in] ys - mass fractions
      * \return Mixture static enthalpy (output)
@@ -215,10 +267,22 @@ namespace Framework  {
     virtual double ComputeEnthalpy(const double temp, const Vector& ys) = 0;
 
     /*!
-     * \brief Returns the static enthalpy per unit of mass of each species
+     * \brief Set the static enthalpy per unit of mass of each species
+     * \param[in] temp - the mixture temperature
+    */
+    virtual void SetPartialEnthalpy(const double temp) = 0;
+
+    /*!
+     * \brief Return the static enthalpy per unit of mass of each species
      * \param[in] temp - the mixture temperature
     */
     virtual Vector ComputePartialEnthalpy(const double temp) = 0;
+
+    /*!
+     * \brief Return the internal energy of each species
+     * \param[in] temp - the mixture temperature
+    */
+    virtual Vector ComputePartialEnergy(const double temp) = 0;
 
     /*!
      * \brief Computes the mixture total concentration
@@ -244,6 +308,21 @@ namespace Framework  {
     virtual double ComputeCV(const double temp, const Vector& ys) = 0;
 
     /*!
+     * \brief Compute the specific heat at constant volume
+     * \param[in] temp - temperature
+     * \param[in] cp - specific heat at constant pressure
+     * \return Cv - specific heat at constant volume
+    */
+    virtual double ComputeCV_FromCP(const double cp, const Vector& ys) = 0;
+
+    /*!
+     * \brief Computes the frozen specific heat ratio.
+     * \param[in] cp - specific heat at constant pressure
+     * \param[in] ys - The vector of the mass fractions of species
+     */
+    virtual double ComputeFrozenGamma_FromCP(const double cp, const Vector& ys) = 0;
+
+    /*!
      * \brief Compute the thermal conductivity given temperature
      * \param[in] temp - temperature
      * \param[in] ys - mass fractions
@@ -260,7 +339,7 @@ namespace Framework  {
     virtual double ComputeEta(const double temp, const Vector& ys) = 0;
 
     /*!
-     * Returns the mass production/destruction terms [kg m^-3 s^-1] in chemical
+     * Return the mass production/destruction terms [kg m^-3 s^-1] in chemical
      * non-equilibrium based on Arrhenius's formula.
      * \param[in] temp - the mixture temperature
      * \param[in] rho - the mixture density
@@ -270,7 +349,7 @@ namespace Framework  {
     virtual Vector GetMassProductionTerm(const double temp, const double rho, const Vector& ys) = 0;
 
     /*!
-     * Returns the diffusion velocities of species multiplied by the species
+     * Return the diffusion velocities of species multiplied by the species
      * densities for nonequilibrium computations
      * \param[in] temp - the mixture temperature
      * \param[in] rho - the mixture density
@@ -280,7 +359,7 @@ namespace Framework  {
     virtual Vector GetRhoUdiff(const double temp, const double rho, const Vector& ys) = 0;
 
     /*!
-     * Returns the diffusion velocities of species multiplied by the species
+     * Return the diffusion velocities of species multiplied by the species
      * densities for nonequilibrium computations
      * \param[in] pressure - the mixture pressure
      * \param[in] temp - the mixture temperature
@@ -288,7 +367,7 @@ namespace Framework  {
     virtual Matrix GetDij_SM(const double pressure, const double temp) = 0;
 
     /*!
-     * Returns thematrix of Stefan-Maxwell equations
+     * Return thematrix of Stefan-Maxwell equations
      * \param[in] rho - the mixture density
      * \param[in] xs - current molar fractions
      * \param[in] ys - current mass fractions
@@ -297,7 +376,7 @@ namespace Framework  {
     virtual Matrix GetGamma(const double rho, const Vector& xs, const Vector& ys, const Matrix& val_Dij) = 0;
 
     /*!
-     * \brief Returns the effective diffusion coefficients to solve Stefan-Maxwell equation using Sutton algorithm
+     * \brief Return the effective diffusion coefficients to solve Stefan-Maxwell equation using Sutton algorithm
      * \param[in] temp - the mixture temperature
      * \param[in] pressure - the mixture pressure
      * \param[in] ys - mass fractions in the mixture

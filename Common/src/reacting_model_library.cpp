@@ -142,6 +142,13 @@ namespace Framework {
   inline double ReactingModelLibrary::ComputeFrozenSoundSpeed(const double temp, const RealVec& ys) {
     double gamma = ComputeFrozenGamma(temp,ys);
     return std::sqrt(gamma*Rgas*temp);
+    }
+
+  //
+  //
+  /* This function computes the frozen sound speed when we already computed gamma */
+  inline double ReactingModelLibrary::ComputeFrozenSoundSpeed_FromGamma(const double temp, const double gamma, const RealVec& ys) {
+    return std::sqrt(gamma*Rgas*temp);
   }
 
   //
@@ -149,6 +156,14 @@ namespace Framework {
   /* This function computes the frozen sound speed */
   inline double ReactingModelLibrary::ComputeFrozenSoundSpeed(const double temp, const RealVec& ys, const double press, const double rho) {
     double gamma = ComputeFrozenGamma(temp,ys);
+    return std::sqrt(gamma*press/rho);
+  }
+
+  //
+  //
+  /* This function computes the frozen sound speed whne we already computed gamma */
+  inline double ReactingModelLibrary::ComputeFrozenSoundSpeed_FromGamma(const double gamma, const RealVec& ys,
+                                                                       const double press, const double rho) {
     return std::sqrt(gamma*press/rho);
   }
 
@@ -163,9 +178,25 @@ namespace Framework {
   //
   //
   /* This function computes density at given temperature and pressure */
-  inline double ReactingModelLibrary::ComputeDensity(const double temp, const double pressure, const RealVec& ys) {
+  inline double ReactingModelLibrary::ComputeDensity(const double pressure, const double temp, const RealVec& ys) {
     SetRgas(ys);
     return pressure/(temp*Rgas);
+  }
+
+  //
+  //
+  /* This function computes temperature at given density and pressure */
+  inline double ReactingModelLibrary::ComputeTemperature(const double pressure, const double rho, const RealVec& ys) {
+    SetRgas(ys);
+    return pressure/(rho*Rgas);
+  }
+
+  //
+  //
+  /* This function computes density at given temperature and pressure */
+  inline double ReactingModelLibrary::ComputeTemperature_FromGamma(const double sound_speed2, const double gamma, const RealVec& ys) {
+    SetRgas(ys);
+    return sound_speed2/(gamma*Rgas);
   }
 
   //
@@ -173,7 +204,7 @@ namespace Framework {
   /* This function computes internal energy at given temperature and pressure */
   inline double ReactingModelLibrary::ComputeEnergy(const double temp, const RealVec& ys) {
     double enthalpy = ComputeEnthalpy(temp,ys);
-    double Rgas = std::inner_product(Ys.cbegin(),Ys.cend(),Ri.cbegin(),0.0);
+    SetRgas(ys);
     return enthalpy - temp*Rgas;
   }
 
@@ -182,19 +213,27 @@ namespace Framework {
   /* This function computes density,internal energy and static enthalpy at given temperature and pressure */
   inline void ReactingModelLibrary::Density_Enthalpy_Energy(const double temp, const double pressure, const RealVec& ys, RealVec& dhe) {
     dhe.resize(3);
-    dhe[0] = ComputeDensity(temp,pressure,ys);
+    dhe[0] = ComputeDensity(pressure,temp,ys);
     dhe[1] = ComputeEnthalpy(temp,ys);
     dhe[2] = dhe[1] - pressure/dhe[0];
   }
 
   //
   //
-  /* This function computes the static enthalpy for each species */
-  RealVec ReactingModelLibrary::ComputePartialEnthalpy(const double temp) {
+  /* This function sets the static enthalpy for each species */
+  void ReactingModelLibrary::SetPartialEnthalpy(const double temp) {
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      Enthalpies[iSpecies] = MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Enth_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Enth_Spline[iSpecies]),
-                                                   std::get<Y_DATA_SPLINE>(Enth_Spline[iSpecies]),temp)/mMasses[iSpecies];
+      Enthalpies[iSpecies] = MathTools::GetSpline(std::get<T_DATA_SPLINE>(Enth_Spline[iSpecies]),
+                                                  std::get<X_DATA_SPLINE>(Enth_Spline[iSpecies]),
+                                                  std::get<Y_DATA_SPLINE>(Enth_Spline[iSpecies]),temp)/mMasses[iSpecies];
+  }
 
+
+  //
+  //
+  /* This function computes the static enthalpy for each species */
+  inline RealVec ReactingModelLibrary::ComputePartialEnthalpy(const double temp) {
+    SetPartialEnthalpy(temp);
     return Enthalpies;
   }
 
@@ -202,22 +241,30 @@ namespace Framework {
   //
   /* This function computes the static enthalpy of the mixture  */
   double ReactingModelLibrary::ComputeEnthalpy(const double temp, const RealVec& ys) {
-    for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      Enthalpies[iSpecies] = MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Enth_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Enth_Spline[iSpecies]),
-                                                   std::get<Y_DATA_SPLINE>(Enth_Spline[iSpecies]),temp)/mMasses[iSpecies];
-
+    SetPartialEnthalpy(ys);
     SetMassFractions(ys);
     return std::inner_product(Ys.cbegin(),Ys.cend(),Enthalpies.cbegin(),0.0);
   }
 
+  //
+  //
+  /* This function computes the static enthalpy for each species */
+  RealVec ReactingModelLibrary::ComputePartialEnergy(const double temp) {
+    SetPartialEnthalpy(temp);
+    /*--- Set internal energies ---*/
+    for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
+      Internal_Energies[iSpecies] = Enthalpies[iSpecies] - Ri[iSpecies]*temp;
+
+    return Internal_Energies;
+  }
 
   //
   //
   /* This function computes the specific heat at constant pressure */
   double ReactingModelLibrary::ComputeCP(const double temp, const RealVec& ys) {
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      CPs[iSpecies] = MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Cp_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Cp_Spline[iSpecies]),
-                                            std::get<Y_DATA_SPLINE>(Cp_Spline[iSpecies]),temp)/mMasses[iSpecies];
+      CPs[iSpecies] = MathTools::GetSpline(std::get<T_DATA_SPLINE>(Cp_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Cp_Spline[iSpecies]),
+                                           std::get<Y_DATA_SPLINE>(Cp_Spline[iSpecies]),temp)/mMasses[iSpecies];
 
     SetMassFractions(ys);
     return std::inner_product(Ys.cbegin(),Ys.cend(),CPs.cbegin(),0.0);
@@ -232,8 +279,9 @@ namespace Framework {
     SU2_Assert(Viscosities.size() == nSpecies,"The dimension of Viscosities doesn't match nSpecies");
 
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      Viscosities[iSpecies] = MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Mu_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Mu_Spline[iSpecies]),
-                                                    std::get<Y_DATA_SPLINE>(Mu_Spline[iSpecies]),temp);
+      Viscosities[iSpecies] = MathTools::GetSpline(std::get<T_DATA_SPLINE>(Mu_Spline[iSpecies]),
+                                                   std::get<X_DATA_SPLINE>(Mu_Spline[iSpecies]),
+                                                   std::get<Y_DATA_SPLINE>(Mu_Spline[iSpecies]),temp);
   }
 
   //
@@ -273,9 +321,9 @@ namespace Framework {
     SU2_Assert(Thermal_Conductivities.size() == nSpecies,"The dimension of Thermal_Conductivities doesn't match nSpecies");
 
     for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-      Thermal_Conductivities[iSpecies] = MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Kappa_Spline[iSpecies]),
-                                                               std::get<X_DATA_SPLINE>(Kappa_Spline[iSpecies]),
-                                                               std::get<Y_DATA_SPLINE>(Kappa_Spline[iSpecies]),temp);
+      Thermal_Conductivities[iSpecies] = MathTools::GetSpline(std::get<T_DATA_SPLINE>(Kappa_Spline[iSpecies]),
+                                                              std::get<X_DATA_SPLINE>(Kappa_Spline[iSpecies]),
+                                                              std::get<Y_DATA_SPLINE>(Kappa_Spline[iSpecies]),temp);
   }
 
   //
@@ -412,10 +460,10 @@ namespace Framework {
       double dcoeff = Stoich_Coeffs_Products(iSpecies,iReac) - Stoich_Coeffs_Reactants(iSpecies,iReac);
       if(dcoeff != 0.0) {
         dG += dcoeff*
-              (MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Enth_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Enth_Spline[iSpecies]),
-                                     std::get<Y_DATA_SPLINE>(Enth_Spline[iSpecies]),temp) - temp*
-               MathTools::GetSpline(*std::get<T_DATA_SPLINE>(Entr_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Entr_Spline[iSpecies]),
-                                     std::get<Y_DATA_SPLINE>(Entr_Spline[iSpecies]),temp));
+              (MathTools::GetSpline(std::get<T_DATA_SPLINE>(Enth_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Enth_Spline[iSpecies]),
+                                    std::get<Y_DATA_SPLINE>(Enth_Spline[iSpecies]),temp) - temp*
+               MathTools::GetSpline(std::get<T_DATA_SPLINE>(Entr_Spline[iSpecies]),std::get<X_DATA_SPLINE>(Entr_Spline[iSpecies]),
+                                    std::get<Y_DATA_SPLINE>(Entr_Spline[iSpecies]),temp));
         dnu += dcoeff;
       }
     }
@@ -462,7 +510,8 @@ namespace Framework {
         kb_con *= Keq.second;
       }
       for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-        omega[iSpecies] += mMasses[iSpecies]*(Stoich_Coeffs_Products(iSpecies,iReac) - Stoich_Coeffs_Reactants(iSpecies,iReac))*(kf_con - kb_con);
+        omega[iSpecies] += mMasses[iSpecies]*(Stoich_Coeffs_Products(iSpecies,iReac) - Stoich_Coeffs_Reactants(iSpecies,iReac))*
+                                             (kf_con - kb_con);
     }
     return omega;
   }
@@ -475,7 +524,7 @@ namespace Framework {
     std::string curr_species;
     unsigned short n_line = 0;
 
-    std::ifstream mixfile(f_name);
+    std::ifstream mixfile(Lib_Path + "/" + f_name);
     if(mixfile.is_open()) {
       /*--- Clear vectors for safety ---*/
       Species_Names.clear();
@@ -521,7 +570,7 @@ namespace Framework {
             Diff_Volumes.push_back(curr_vol);
             /*--- Insert in the map ---*/
             auto res = Species_Names.insert(std::make_pair(curr_species,n_line - 1));
-            SU2_Assert(res.second==true,std::string("The species " + curr_species + " has already been declared"));
+            SU2_Assert(res.second == true,std::string("The species " + curr_species + " has already been declared"));
             n_line++;
           }
         }
@@ -534,6 +583,7 @@ namespace Framework {
         Cs.resize(nSpecies);
         Viscosities.resize(nSpecies);
         Enthalpies.resize(nSpecies);
+        Internal_Energies.resize(nSpecies);
         CPs.resize(nSpecies);
         Thermal_Conductivities.resize(nSpecies);
         ys_over_mm.resize(nSpecies);
@@ -559,7 +609,7 @@ namespace Framework {
     unsigned n_line = 0;
     unsigned n_reac_read = 0;
 
-    std::ifstream chemfile(f_name);
+    std::ifstream chemfile(Lib_Path + "/" + f_name);
     if(chemfile.is_open()) {
       /*--- Clear for safety ---*/
       Stoich_Coeffs_Reactants.resize(0,0);
@@ -673,13 +723,9 @@ namespace Framework {
     std::string curr_species;
     unsigned short iSpecies;
     double curr_temp,curr_visc,curr_cond;
-    std::shared_ptr<RealVec> temp_data(new RealVec());
-    RealVec mu_data,kappa_data;
-    (*temp_data).reserve(nSpecies);
-    mu_data.reserve(nSpecies);
-    kappa_data.reserve(nSpecies);
+    RealVec temp_data,mu_data,kappa_data;
 
-    std::ifstream transpfile(f_name);
+    std::ifstream transpfile(Lib_Path + "/" + f_name);
 
     if(transpfile.is_open()) {
       while(transpfile.good() && !transpfile.eof()) {
@@ -701,7 +747,7 @@ namespace Framework {
             curr_line>>curr_temp;
             SU2_Assert(!curr_line.fail(),std::string("Empty Temperature field at line " + std::to_string(n_line + 1) +
                                                      " for species " + curr_species));
-            temp_data->push_back(curr_temp);
+            temp_data.push_back(curr_temp);
 
             /*--- Reading viscosity ---*/
             curr_line>>curr_visc;
@@ -722,10 +768,10 @@ namespace Framework {
 
       RealVec y2_mu,y2_kappa;
 
-      MathTools::SetSpline(*temp_data,mu_data,0.0,0.0,y2_mu);
+      MathTools::SetSpline(temp_data,mu_data,0.0,0.0,y2_mu);
       Mu_Spline[iSpecies] = std::make_tuple(temp_data,std::move_if_noexcept(mu_data),std::move_if_noexcept(y2_mu));
 
-      MathTools::SetSpline(*temp_data,kappa_data,0.0,0.0,y2_kappa);
+      MathTools::SetSpline(temp_data,kappa_data,0.0,0.0,y2_kappa);
       Kappa_Spline[iSpecies] = std::make_tuple(temp_data,std::move_if_noexcept(kappa_data),std::move_if_noexcept(y2_kappa));
 
       transpfile.close();
@@ -745,14 +791,9 @@ namespace Framework {
     std::string curr_species;
     unsigned short iSpecies;
     double curr_temp,curr_enth,curr_Cp,curr_entr;
-    std::shared_ptr<RealVec> temp_data(new RealVec());
-    RealVec cp_data,enth_data,entr_data;
-    (*temp_data).reserve(nSpecies);
-    cp_data.reserve(nSpecies);
-    enth_data.reserve(nSpecies);
-    entr_data.reserve(nSpecies);
+    RealVec temp_data,cp_data,enth_data,entr_data;
 
-    std::ifstream thermofile(f_name);
+    std::ifstream thermofile(Lib_Path + "/" + f_name);
 
     if(thermofile.is_open()) {
       while(thermofile.good() && !thermofile.eof()) {
@@ -774,7 +815,7 @@ namespace Framework {
           curr_line>>curr_temp;
           SU2_Assert(!curr_line.fail(),std::string("Empty Temperature field at line " + std::to_string(n_line + 1) +
                                                    " for species " + curr_species));
-          temp_data->push_back(curr_temp);
+          temp_data.push_back(curr_temp);
 
           /*--- Reading Cp ---*/
           curr_line>>curr_Cp;
@@ -801,13 +842,13 @@ namespace Framework {
 
       RealVec y2_cp,y2_enth,y2_entr;
 
-      MathTools::SetSpline(*temp_data,cp_data,0.0,0.0,y2_cp);
+      MathTools::SetSpline(temp_data,cp_data,0.0,0.0,y2_cp);
       Cp_Spline[iSpecies] = std::make_tuple(temp_data,std::move_if_noexcept(cp_data),std::move_if_noexcept(y2_cp));
 
-      MathTools::SetSpline(*temp_data,enth_data,0.0,0.0,y2_enth);
+      MathTools::SetSpline(temp_data,enth_data,0.0,0.0,y2_enth);
       Enth_Spline[iSpecies] = std::make_tuple(temp_data,std::move_if_noexcept(enth_data),std::move_if_noexcept(y2_enth));
 
-      MathTools::SetSpline(*temp_data,entr_data,0.0,0.0,y2_entr);
+      MathTools::SetSpline(temp_data,entr_data,0.0,0.0,y2_entr);
       Entr_Spline[iSpecies] = std::make_tuple(temp_data,std::move_if_noexcept(entr_data),std::move_if_noexcept(y2_entr));
 
       thermofile.close();
@@ -855,7 +896,7 @@ namespace Framework {
       using size_type = std::vector<std::string>::size_type;
       size_type max_n_file = 2*nSpecies + 2;
       size_type n_file = list_file.size();
-      SU2_Assert((n_file == max_file) || (n_file == max_n_file - 1),"The number of files present in the configuration file is wrong");
+      SU2_Assert((n_file == max_n_file) || (n_file == max_n_file - 1),"The number of files present in the configuration file is wrong");
 
       /*--- Set the specific gas constants ---*/
       SetRiGas();
@@ -903,6 +944,7 @@ namespace Framework {
       Cs.clear();
       Viscosities.clear();
       Enthalpies.clear();
+      Internal_Energies.clear();
       CPs.clear();
       Thermal_Conductivities.clear();
       Formation_Enthalpies.clear();

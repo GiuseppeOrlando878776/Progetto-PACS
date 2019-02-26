@@ -24,7 +24,7 @@ namespace Common {
     * \class Factory
     * \brief Class for loading libraries at run-time.
     * \author G. Orlando
-    */
+  */
   template<class Base>
   class Factory: public Common::NotCopyable<Factory<Base>> {
   public:
@@ -90,17 +90,32 @@ namespace Common {
 
   }; /*--- End of class Factory ---*/
 
+  //
+  //
+  /*
+   * \brief Mayer's trick implementation
+  */
   template<class Base>
   Factory<Base>& Factory<Base>::GetInstance(void) {
     static Common::Factory<Base> obj;
     return obj;
   }
 
+  //
+  //
+  /*
+   * \brief Check if a provider already exists
+  */
   template<class Base>
   bool Factory<Base>::Exists(const std::string& name) const {
     return (database.count(name) > 0);
   }
 
+  //
+  //
+  /*
+   * \brief Regist a provider
+  */
   template<class Base>
   void Factory<Base>::Regist(Provider<Base>* provider) {
     if(Exists(provider->GetProviderName())) {
@@ -113,6 +128,11 @@ namespace Common {
     database.emplace(provider->GetProviderName(), std::unique_ptr<Provider<Base>>(provider));
   }
 
+  //
+  //
+  /*
+   * \brief Unregist a provider
+  */
   template<class Base>
   void Factory<Base>::Unregist(const std::string& provider_name) {
     if (!Exists(provider_name)) {
@@ -122,7 +142,11 @@ namespace Common {
     database.erase(provider_name);
   }
 
-
+  //
+  //
+  /*
+   * \brief Get a pointer to a deisred provider
+  */
   template<class Base>
   typename Base::Provider* Factory<Base>::GetProvider(const std::string& provider_name) const {
     if (!Exists(provider_name)) {
@@ -132,6 +156,11 @@ namespace Common {
     return dynamic_cast<typename Base::Provider*>(database.find(provider_name)->second.get());
   }
 
+  //
+  //
+  /*
+   * \brief Get a list with all providers name
+  */
   template<class Base>
   std::vector<std::string> Factory<Base>::GetAllProviders(void) const {
     std::vector<std::string> res;
@@ -141,6 +170,6 @@ namespace Common {
     return res;
   }
 
-}
+} /*--- End of namespace Common ---*/
 
 #endif

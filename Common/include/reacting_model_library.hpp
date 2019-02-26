@@ -5,7 +5,6 @@
 
 #include "../../externals/Eigen/Dense"
 #include "su2_assert.hpp"
-#include <memory>
 #include <map>
 #include <set>
 #include <tuple>
@@ -18,17 +17,21 @@ namespace Framework {
   class ReactingModelLibrary: public Framework::PhysicalChemicalLibrary<RealVec,Eigen::MatrixXd> {
 
   public:
-
-    typedef std::tuple<std::shared_ptr<RealVec>,RealVec,RealVec> MyTuple;
+    typedef std::tuple<RealVec,RealVec,RealVec> MyTuple;
     using RealMatrix = Eigen::MatrixXd;
     using Vec = Eigen::VectorXd;
 
   public:
+    /*!
+     * \brief Constructor with the name of the configuration file of the library.
+     */
+    ReactingModelLibrary(const std::string& conf_name): PhysicalChemicalLibrary(conf_name), Rgas(), Le() {}
 
     /*!
-     * \brief Constructor with the name of the comfiguration file of the library.
+     * \brief Constructor with the name of the configuration file of the library and the library path.
      */
-    ReactingModelLibrary(const std::string& name): PhysicalChemicalLibrary(name), Rgas(), Le() {}
+    ReactingModelLibrary(const std::string& conf_name, const std::string& lib_path_name):
+    PhysicalChemicalLibrary(conf_name, lib_path_name), Rgas(), Le() {}
 
     /*!
      * \brief Default destructor.
@@ -53,25 +56,32 @@ namespace Framework {
     void Unsetup(void);
 
     /*!
-     * \brief Set the constant of gases for each species [J/(Kmol*K)]
+     * \brief Set the gas constant for each species [J/(Kg*K)]
      */
     void SetRiGas(void) override;
 
     /*!
-     * \brief Get the constant of perfect gases [J/(Kmol*K)]
+     * \brief Set the gas constant for each species [J/(Kg*K)]
+     */
+    RealVec GetRiGas(void) const override {
+      return Ri;
+    }
+
+    /*!
+     * \brief Get the gas constant for the mixture [J/(Kg*K)]
      */
     inline double GetRgas(void) const override {
       return Rgas;
     }
 
     /*!
-     * \brief Set the constant of perfect gases for the mixture[J/(Kmol*K)]
+     * \brief Set the gas constant for the mixture[J/(Kg*K)]
      * \param[in] ys - The vector of the mass fractions of species
      */
     void SetRgas(const RealVec& ys) override;
 
     /*!
-     * Compute the constant of perfect gases for the mixture [J/(Kmol*K)]
+     * Compute the gas constant for the mixture [J/(Kg*K)]
      * \param[in] ys - The vector of the mass fractions of species
      */
     double ComputeRgas(const RealVec& ys) override;
@@ -148,11 +158,28 @@ namespace Framework {
     /*!
      * \brief Computes the frozen speed of sound.
      * \param[in] temp - temperature
+     * \param[in] gamma - specific heat ratio
+     * \param[in] ys - The vector of the mass fractions of species
+    */
+    double ComputeFrozenSoundSpeed_FromGamma(const double temp, const double gamma, const Vector& ys) override;
+
+    /*!
+     * \brief Computes the frozen speed of sound.
+     * \param[in] temp - temperature
      * \param[in] ys - The vector of the mass fractions of species
      * \param[in] press - pressure
      * \param[in] rho - density
     */
     double ComputeFrozenSoundSpeed(const double temp, const RealVec& ys, const double press, const double rho) override;
+
+    /*!
+     * \brief Computes the frozen speed of sound.
+     * \param[in] gamma - specific heat ratio
+     * \param[in] ys - The vector of the mass fractions of species
+     * \param[in] press - pressure
+     * \param[in] rho - density
+    */
+    double ComputeFrozenSoundSpeed_FromGamma(const double gamma, const Vector& ys, const double press, const double rho) override;
 
     /*!
      * \brief Computes the density, the enthalpy and the internal energy
@@ -164,7 +191,7 @@ namespace Framework {
     void Density_Enthalpy_Energy(const double temp, const double pressure, const RealVec& ys, RealVec& dhe) override;
 
     /*!
-     * \brief Computes the density at given temperature and pressure.
+     * \brief Computes the pressure  at given temperature and density.
      * \param[in] temp - temperature
      * \param[in] rho - density
      * \param[in] ys - mass fractions
@@ -173,11 +200,27 @@ namespace Framework {
 
     /*!
      * \brief Computes the density at given temperature and pressure.
-     * \param[in] temp - temperature
      * \param[in] pressure - pressure
+     * \param[in] temp - temperature
      * \param[in] ys - mass fractions
     */
-    double ComputeDensity(const double temp, const double pressure, const RealVec& ys) override;
+    double ComputeDensity(const double pressure, const double temp, const RealVec& ys) override;
+
+    /*!
+     * \brief Compute the temperature given density and pressure.
+     * \param[in] pressure - pressure
+     * \param[in] rho - density
+     * \param[in] ys - mass fractions
+    */
+    double ComputeTemperature(const double pressure, const double rho, const RealVec& ys) override;
+
+    /*!
+     * \brief Compute the density given sound speed and gamma.
+     * \param[in] sound_speed2 - squared sound speed
+     * \param[in] gamma - specific heats ratio
+     * \param[in] ys - mass fractions
+    */
+    double ComputeTemperature_FromGamma(const double sound_speed2, const double gamma, const RealVec& ys) override;
 
     /*!
      * \brief Computes the internal energy per unit of mass at given temperature and pressure.
@@ -187,14 +230,14 @@ namespace Framework {
     double ComputeEnergy(const double temp, const RealVec& ys) override;
 
     /*!
-     * \brief Returns the formation enthalpies per unit mass of species
+     * \brief Return the formation enthalpies per unit mass of species
     */
     inline RealVec GetFormationEnthalpies(void) const override {
       return Formation_Enthalpies;
     }
 
     /*!
-     * \brief Returns the static enthalpy per unit of mass
+     * \brief Return the static enthalpy per unit of mass
      * \param[in] temp - the mixture temperature
      * \param[in] ys - mass fractions
      * \return Mixture static enthalpy
@@ -202,10 +245,22 @@ namespace Framework {
     double ComputeEnthalpy(const double temp, const RealVec& ys) override;
 
     /*!
-     * \brief Returns the static enthalpy per unit of mass of each species
+     * \brief Set the static enthalpy per unit of mass of each species
+     * \param[in] temp - the mixture temperature
+    */
+    void SetPartialEnthalpy(const double temp) override;
+
+    /*!
+     * \brief Return the static enthalpy per unit of mass of each species
      * \param[in] temp - the mixture temperature
     */
     RealVec ComputePartialEnthalpy(const double temp) override;
+
+    /*!
+     * \brief Return the internal energy of each species
+     * \param[in] temp - the mixture temperature
+    */
+    RealVec ComputePartialEnergy(const double temp) override;
 
     /*!
      * \brief Computes the mixture total concentration
@@ -224,7 +279,7 @@ namespace Framework {
      * \param[in] ys - mass fractions
      * \return Specific heat at constant pressure
     */
-    double ComputeCP(const double temp,const RealVec& ys) override;
+    double ComputeCP(const double temp, const RealVec& ys) override;
 
     /*!
      * \brief Computes the specific heat at constant volume
@@ -234,6 +289,25 @@ namespace Framework {
     */
     double ComputeCV(const double temp, const RealVec& ys) override {
       return ComputeCP(temp,ys) - ComputeRgas(ys);
+    }
+
+    /*!
+     * \brief Compute the specific heat at constant volume
+     * \param[in] temp - temperature
+     * \param[in] cp - specific heat at constant pressure
+     * \return Cv - specific heat at constant volume
+    */
+    inline double ComputeCV_FromCP(const double cp, const RealVec& ys) override {
+      return cp - ComputeRgas(ys);
+    }
+
+    /*!
+     * \brief Computes the frozen specific heat ratio.
+     * \param[in] cp - specific heat at constant pressure
+     * \param[in] ys - The vector of the mass fractions of species
+     */
+    inline double ComputeFrozenGamma_FromCP(const double cp, const RealVec& ys) override {
+      return cp/(cp - ComputeRgas(ys));
     }
 
     /*!
@@ -267,7 +341,7 @@ namespace Framework {
     double ComputeEta(const double temp, const RealVec& ys) override;
 
     /*!
-     * Returns the mass production/destruction terms [kg m^-3 s^-1] in chemical
+     * Return the mass production/destruction terms [kg m^-3 s^-1] in chemical
      * non-equilibrium based on Arrhenius's formula.
      * \param[in] temp - the mixture temperature
      * \param[in] rho - the mixture density
@@ -277,7 +351,7 @@ namespace Framework {
     RealVec GetMassProductionTerm(const double temp, const double rho, const RealVec& ys) override;
 
    /*!
-    * Returns the diffusion velocities of species multiplied by the species
+    * Return the diffusion velocities of species multiplied by the species
     * densities for nonequilibrium computations
     * \param[in] temp - the mixture temperature
     * \param[in] rho  - the mixture density
@@ -287,14 +361,14 @@ namespace Framework {
     RealVec GetRhoUdiff(const double temp, const double rho, const RealVec& ys) override;
 
    /*!
-    * Returns the binary diffusion coefficients
+    * Return the binary diffusion coefficients
     * \param[in] pressure - the mixture pressure
     * \param[in] temp - the mixture temperature
     */
     RealMatrix GetDij_SM(const double pressure, const double temp) override;
 
     /*!
-     * Returns thematrix of Stefan-Maxwell equations
+     * Return thematrix of Stefan-Maxwell equations
      * \param[in] rho - the mixture density
      * \param[in] xs - current molar fractions
      * \param[in] ys - current mass fractions
@@ -303,7 +377,7 @@ namespace Framework {
     RealMatrix GetGamma(const double rho, const RealVec& xs, const RealVec& ys, const RealMatrix& val_Dij) override;
 
     /*!
-     * \brief Returns the effective diffusion coefficients to solve Stefan-Maxwell equation
+     * \brief Return the effective diffusion coefficients to solve Stefan-Maxwell equation
      * \param[in] temp - the mixture temperature
      * \param[in] pressure - the mixture pressure
      * \param[in] ys - mass fractions in the mixture
@@ -320,7 +394,7 @@ namespace Framework {
     void SetConcentration(const double rho, const RealVec& ys);
 
     /*!
-     * \brief Returns the forward and backward reaction rate coefficients.
+     * \brief Return the forward and backward reaction rate coefficients.
      * \param[in] temp - the mixture temperature
      * \param[in] iReac - index of the desired reaction
     */
@@ -400,6 +474,8 @@ namespace Framework {
     std::vector<MyTuple> Enth_Spline; /*!< \brief Spline interpolation coefficient for enthalpy computation. */
 
     RealVec Enthalpies; /*!< \brief Enthalpy for each species. */
+
+    RealVec Internal_Energies; /*!< \brief Internal Energy for each species. */
 
     RealVec CPs; /*!< \brief Specific heat at constant pressure for each species (Cp). */
 
