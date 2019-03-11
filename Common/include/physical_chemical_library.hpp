@@ -68,7 +68,7 @@ namespace Framework  {
     /*!
      * Get the number of reactions in the mixture
     */
-    inline const unsigned GetNReactions(void) const {
+    inline const unsigned short GetNReactions(void) const {
       return nReactions;
     }
 
@@ -87,7 +87,7 @@ namespace Framework  {
     /*!
      * Get the gas constant for each species [J/(Kg*K)]
     */
-    Vector void GetRiGas(void) const = 0;
+    virtual Vector GetRiGas(void) const = 0;
 
     /*!
      * \brief Get the gas constant for the mixture [J/(Kg*K)]
@@ -199,13 +199,6 @@ namespace Framework  {
     virtual double ComputeFrozenSoundSpeed_FromGamma(const double gamma, const Vector& ys, const double press, const double rho) = 0;
 
     /*!
-     * \brief Computes the frozen speed of sound.
-     * \param[in] temp - temperature
-     * \param[in] ys - The vector of the mass fractions of species
-    */
-    virtual double ComputeFrozenSoundSpeed(const double temp, const Vector& ys) = 0;
-
-    /*!
      * \brief Compute the density, the enthalpy and the internal energy
      * \param[in] temp - temperature
      * \param[in] pressure - pressure
@@ -285,7 +278,14 @@ namespace Framework  {
     virtual Vector ComputePartialEnergy(const double temp) = 0;
 
     /*!
-     * \brief Computes the mixture total concentration
+     * \brief Set the actual concetration for each species
+     * \param[in] rho - the mixture density
+     * \param[in] ys - the actual mass fractions
+    */
+    virtual void SetConcentration(const double rho, const RealVec& ys) = 0;
+
+    /*!
+     * \brief Compute the mixture total concentration
      * \param[in] rho - density
      * \param[in] ys - mass fractions
     */
@@ -323,7 +323,7 @@ namespace Framework  {
     virtual double ComputeFrozenGamma_FromCP(const double cp, const Vector& ys) = 0;
 
     /*!
-     * \brief Compute the thermal conductivity given temperature
+     * \brief Compute the thermal conductivity at given temperature
      * \param[in] temp - temperature
      * \param[in] ys - mass fractions
      * \return Total thermal conductivity for thermal non equilibrium
@@ -331,12 +331,22 @@ namespace Framework  {
     virtual double ComputeLambda(const double temp, const Vector& ys) = 0;
 
     /*!
-     * \brief Compute the dynamic viscosity given temperature and
+     * \brief Compute the dynamic viscosity at given temperature
      * \param[in] temp - temperature
      * \param[in] ys - mass fractions
      * \return Total molecular viscosity for thermal non equilibrium
     */
     virtual double ComputeEta(const double temp, const Vector& ys) = 0;
+
+    /*!
+     * Return the diffusion velocities of species multiplied by the species
+     * densities for nonequilibrium computations
+     * \param[in] temp - the mixture temperature
+     * \param[in] rho - the mixture density
+     * \param[in] ys - the species mass fractions
+     * \return Diffusion coefficient with constant Lewis number for each species
+    */
+    virtual Vector GetRhoUdiff(const double temp, const double rho, const Vector& ys) = 0;
 
     /*!
      * Return the mass production/destruction terms [kg m^-3 s^-1] in chemical
@@ -349,14 +359,20 @@ namespace Framework  {
     virtual Vector GetMassProductionTerm(const double temp, const double rho, const Vector& ys) = 0;
 
     /*!
-     * Return the diffusion velocities of species multiplied by the species
-     * densities for nonequilibrium computations
+     * Compute the Jacobian of source chemistry. NOTE: It requires SetReactionRates call
      * \param[in] temp - the mixture temperature
      * \param[in] rho - the mixture density
-     * \param[in] ys - the species mass fractions
-     * \return Diffusion coefficient with constant Lewis number for each species
-    */
-    virtual Vector GetRhoUdiff(const double temp, const double rho, const Vector& ys) = 0;
+     * \return Source Jacobian
+     */
+     virtual Matrix GetSourceJacobian(const double temp, const double rho) = 0;
+
+    /*!
+     * \brief Return the effective diffusion coefficients to solve Stefan-Maxwell equation using Sutton algorithm
+     * \param[in] temp - the mixture temperature
+     * \param[in] pressure - the mixture pressure
+     * \param[in] ys - mass fractions in the mixture
+     */
+    virtual Vector GetDiffCoeffs(const double temp, const double pressure, const Vector& ys) = 0;
 
     /*!
      * Return the diffusion velocities of species multiplied by the species
@@ -374,14 +390,6 @@ namespace Framework  {
      * \param[in] val_Dij - current binary diffusion coefficients
      */
     virtual Matrix GetGamma(const double rho, const Vector& xs, const Vector& ys, const Matrix& val_Dij) = 0;
-
-    /*!
-     * \brief Return the effective diffusion coefficients to solve Stefan-Maxwell equation using Sutton algorithm
-     * \param[in] temp - the mixture temperature
-     * \param[in] pressure - the mixture pressure
-     * \param[in] ys - mass fractions in the mixture
-     */
-    virtual Vector GetDiffCoeffs(const double temp, const double pressure, const Vector& ys) = 0;
 
   protected:
 

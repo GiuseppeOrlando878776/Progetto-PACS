@@ -161,7 +161,7 @@ namespace Framework {
      * \param[in] gamma - specific heat ratio
      * \param[in] ys - The vector of the mass fractions of species
     */
-    double ComputeFrozenSoundSpeed_FromGamma(const double temp, const double gamma, const Vector& ys) override;
+    double ComputeFrozenSoundSpeed_FromGamma(const double temp, const double gamma, const RealVec& ys) override;
 
     /*!
      * \brief Computes the frozen speed of sound.
@@ -179,7 +179,7 @@ namespace Framework {
      * \param[in] press - pressure
      * \param[in] rho - density
     */
-    double ComputeFrozenSoundSpeed_FromGamma(const double gamma, const Vector& ys, const double press, const double rho) override;
+    double ComputeFrozenSoundSpeed_FromGamma(const double gamma, const RealVec& ys, const double press, const double rho) override;
 
     /*!
      * \brief Computes the density, the enthalpy and the internal energy
@@ -263,15 +263,17 @@ namespace Framework {
     RealVec ComputePartialEnergy(const double temp) override;
 
     /*!
+     * \brief Set the actual concetration for each species
+     * \param[in] rho - the mixture density
+     * \param[in] ys - the actual mass fractions
+    */
+    void SetConcentration(const double rho, const RealVec& ys) override;
+
+    /*!
      * \brief Computes the mixture total concentration
      * \param[in] rho - density
      */
-    inline double ComputeConcentration(const double rho, const RealVec& ys) override {
-      double totMass = 0.0;
-      for(unsigned short iSpecies = 0; iSpecies < nSpecies; ++iSpecies)
-        totMass += ys[iSpecies]/mMasses[iSpecies];
-      return rho*totMass;
-    }
+    double ComputeConcentration(const double rho, const RealVec& ys) override;
 
     /*!
      * \brief Computes the specific heat at constant pressure
@@ -340,16 +342,6 @@ namespace Framework {
     */
     double ComputeEta(const double temp, const RealVec& ys) override;
 
-    /*!
-     * Return the mass production/destruction terms [kg m^-3 s^-1] in chemical
-     * non-equilibrium based on Arrhenius's formula.
-     * \param[in] temp - the mixture temperature
-     * \param[in] rho - the mixture density
-     * \param[in] ys - the species mass fractions
-     * \return Mass production terms
-    */
-    RealVec GetMassProductionTerm(const double temp, const double rho, const RealVec& ys) override;
-
    /*!
     * Return the diffusion velocities of species multiplied by the species
     * densities for nonequilibrium computations
@@ -361,20 +353,22 @@ namespace Framework {
     RealVec GetRhoUdiff(const double temp, const double rho, const RealVec& ys) override;
 
    /*!
-    * Return the binary diffusion coefficients
-    * \param[in] pressure - the mixture pressure
+    * Return the mass production/destruction terms [kg m^-3 s^-1] in chemical
+    * non-equilibrium based on Arrhenius's formula.
     * \param[in] temp - the mixture temperature
+    * \param[in] rho - the mixture density
+    * \param[in] ys - the species mass fractions
+    * \return Mass production terms
     */
-    RealMatrix GetDij_SM(const double pressure, const double temp) override;
+    RealVec GetMassProductionTerm(const double temp, const double rho, const RealVec& ys) override;
 
     /*!
-     * Return thematrix of Stefan-Maxwell equations
+     * Compute the Jacobian of source chemistry. NOTE: It requires SetReactionRates call
+     * \param[in] temp - the mixture temperature
      * \param[in] rho - the mixture density
-     * \param[in] xs - current molar fractions
-     * \param[in] ys - current mass fractions
-     * \param[in] val_Dij - current binary diffusion coefficients
+     * \return Contribution to source derivatives with respect to mixture density and partial densitiies
      */
-    RealMatrix GetGamma(const double rho, const RealVec& xs, const RealVec& ys, const RealMatrix& val_Dij) override;
+    RealMatrix GetSourceJacobian(const double temp, const double rho) override;
 
     /*!
      * \brief Return the effective diffusion coefficients to solve Stefan-Maxwell equation
@@ -384,21 +378,44 @@ namespace Framework {
      */
     RealVec GetDiffCoeffs(const double temp, const double pressure, const RealVec& ys) override;
 
-  private:
-
-    /*!
-     * \brief Set the actual concetration for each species
-     * \param[in] rho - the mixture density
-     * \param[in] ys - the actual mass fractions
+   /*!
+    * Return the binary diffusion coefficients
+    * \param[in] pressure - the mixture pressure
+    * \param[in] temp - the mixture temperature
     */
-    void SetConcentration(const double rho, const RealVec& ys);
+    RealMatrix GetDij_SM(const double pressure, const double temp) override;
 
     /*!
-     * \brief Return the forward and backward reaction rate coefficients.
+     * Return the matrix of Stefan-Maxwell equations
+     * \param[in] rho - the mixture density
+     * \param[in] xs - current molar fractions
+     * \param[in] ys - current mass fractions
+     * \param[in] val_Dij - current binary diffusion coefficients
+     */
+    RealMatrix GetGamma(const double rho, const RealVec& xs, const RealVec& ys, const RealMatrix& val_Dij) override;
+
+  private:
+    /*!
+     * \brief Return the equilibrium constants (concentration and pressure).
      * \param[in] temp - the mixture temperature
      * \param[in] iReac - index of the desired reaction
     */
-    std::pair<double,double> GetKeq(const double temp, const unsigned short iReac);
+    std::pair<double,double> ComputeKeq(const double temp, unsigned short iReac);
+
+    /*!
+     * \brief Return the forward and backward reaction rate constants.
+     * \param[in] temp - the mixture temperature
+     * \param[in] iReac - index of the desired reaction
+    */
+    std::pair<double,double> ComputeRateConstants(const double temp, unsigned short iReac);
+
+    /*!
+     * Set forward and backward reaction rates for each reaction.
+     * \param[in] temp - the mixture temperature
+     * \param[in] rho - the mixture density
+     * \param[in] ys - the species mass fractions
+    */
+    void SetReactionRates(const double temp, const double rho, const RealVec& ys);
 
     /*!
       * \brief Read transport data
@@ -493,7 +510,7 @@ namespace Framework {
 
     RealVec As;  /*!< \brief Vector with exponential pre factor. */
 
-    std::vector<int> Ns;  /*!< \brief Vector with temperature exponent. */
+    RealVec Betas;  /*!< \brief Vector with temperature exponent. */
 
     RealVec Temps_Activation;  /*!< \brief Vector with activation temperatures to estimate reaction rates for each reaction. */
 
@@ -503,11 +520,21 @@ namespace Framework {
 
     RealVec Dm_coeffs; /*!< \brief Auxiliary vector for effective diffusion coefficients. */
 
-    RealVec omega; /*!< \brief Auxiliary vector for mass production term. */
+    RealVec Omega; /*!< \brief Auxiliary vector for mass production term. */
 
     RealMatrix Dij; /*!< \brief Auxiliary matrix for diffusion binary coefficients. */
 
     RealMatrix Gamma; /*!< \brief Auxiliary matrix for Stefan-Maxwell equations. */
+
+    RealVec Forward_Rates; /*!< \brief Auxiliary vector for forward rate of each reaction. */
+
+    RealVec Backward_Rates; /*!< \brief Auxiliary vector for backward rate of each reaction. */
+
+    RealVec Kc; /*!< \brief Auxiliary vector for equilibrium constants. */
+
+    RealVec Kc_Derivatives; /*!< \brief Auxiliary vector for equilibrium constants derivative. */
+
+    RealMatrix Source_Jacobian; /*!< \brief Auxiliary matrix for source chemistry Jacobian. */
 
   private:
 

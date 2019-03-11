@@ -13,7 +13,6 @@ namespace Common {
   class ConcreteProvider: public Common::Provider<Base> {
 
   public:
-
     /*!
      * \brief Constructor of the class
     */
@@ -40,7 +39,6 @@ namespace Common {
   class ConcreteProvider<Base,2>: public Common::Provider<Base> {
 
   public:
-
     /*!
      * \brief Constructor of the class
     */

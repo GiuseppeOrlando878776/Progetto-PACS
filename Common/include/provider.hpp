@@ -11,12 +11,10 @@ namespace Common {
   * \brief Class for provider types
   * \author G. Orlando
   */
-
   template<class Base>
   class Provider: public Common::NotCopyable<Provider<Base>> {
 
   public:
-
     /*!
      * \brief Explicit constructor
      */

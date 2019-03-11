@@ -10,7 +10,7 @@
 namespace Common {
 
   /*!
-    * \brief Abstract builder class. It forms the base for builders to be used with factories(one argument for constructor).
+    * \brief Concrete builder class. It forms the base for builders to be used with factories(one argument for constructor).
     * \author G. Orlando
   */
   template<class Abstract,class Concrete,int nargs = 1>
@@ -67,7 +67,6 @@ namespace Common {
     }
 
   }; /*-- End of class ProviderBuilder ---*/
-
 
 } /*-- End of namespace Common ---*/
 
