@@ -2,10 +2,10 @@
 #define SU2_VARIABLE_REACTIVE
 
 #include "variable_structure.hpp"
-#include "../../Common/include/physical_chemical_library.hpp"
+#include "../../Common/include/physical_property_library.hpp"
 #include "../../Common/include/su2_assert.hpp"
 
-#include "../../externals/Eigen/Dense"
+#include <Eigen/Dense>
 #include <numeric>
 
 /*! \class CReactiveEulerVariable
@@ -16,57 +16,52 @@ class CReactiveEulerVariable: public CVariable {
 public:
   typedef std::vector<su2double> RealVec;
   typedef su2double** SU2Matrix;
-  typedef std::shared_ptr<Framework::PhysicalChemicalLibrary<RealVec,Eigen::MatrixXd>> LibraryPtr;
-
-  //template<class Vector, class Matrix>
-  //using LibraryPtr = std::shared_ptr<Framework::PhysicalChemicalLibrary<Vector,Matrix>>;
+  typedef std::shared_ptr<Framework::PhysicalPropertyLibrary> LibraryPtr;
 
 protected:
-  LibraryPtr library; /*!< \brief Smart pointer to the library that computes physical-chemical properties. */
+  static LibraryPtr library; /*!< \brief Smart pointer to the library that computes physical-chemical properties. */
 
-  unsigned short nSpecies; /*!< \brief Number of species in the mixture. */
+  static unsigned short nSpecies; /*!< \brief Number of species in the mixture. */
   unsigned short nPrimVarLim; /*!< \brief Number of primitive variables to limit in the problem. */
 
-  bool US_System;             /*!< \brief Flag for US units. */
-
-  su2double Cp;                 /*!< \brief Specific heat at constant pressure. */
+  su2double Cp;               /*!< \brief Specific heat at constant pressure. */
 
   /*--- Primitive variable definition ---*/
-  RealVec    Primitive; /*!< \brief Primitive variables (T, vx, vy, vz, P, rho, h, a, Y1,...YNs) in compressible flows. */
+  RealVec    Primitive; /*!< \brief Primitive variables (T,vx,vy,vz,P,rho,h,a,Y1,...YNs) in compressible flows. */
   SU2Matrix  Gradient_Primitive; /*!< \brief Gradient of the primitive variables (T, vx, vy, vz, P, rho). */
   RealVec    Limiter_Primitive;    /*!< \brief Limiter of the primitive variables (T, vx, vy, vz, P, rho). */
   RealVec    dPdU;                 /*!< \brief Partial derivative of pressure w.r.t. conserved variables. */
   RealVec    dTdU;                /*!< \brief Partial derivative of temperature w.r.t. conserved variables. */
 
   RealVec Ys;               /*!< \brief Auxiliary vector to store mass fractions separately. */
-  static RealVec Ri;        /*!< \brief Auxiliary vector to store specific gas constat for each species. */
-  RealVec Int_Energies;     /*!< \brief Auxiliary vector to store internal energy for each species. */
+
+public:
 
   /**
    * Mapping between the primitive variable name and its position in the physical data
    */
   static constexpr unsigned short T_INDEX_PRIM = 0;
   static constexpr unsigned short VX_INDEX_PRIM = 1;
-  static unsigned short P_INDEX_PRIM;
-  static unsigned short RHO_INDEX_PRIM;
-  static unsigned short H_INDEX_PRIM;
-  static unsigned short A_INDEX_PRIM;
-  static unsigned short RHOS_INDEX_PRIM;
+  static const unsigned short P_INDEX_PRIM;
+  static const unsigned short RHO_INDEX_PRIM;
+  static const unsigned short H_INDEX_PRIM;
+  static const unsigned short A_INDEX_PRIM;
+  static const unsigned short RHOS_INDEX_PRIM;
 
   /**
    * Mapping between the solution variable name and its position in the physical data
    */
   static constexpr unsigned short RHO_INDEX_SOL = 0;
   static constexpr unsigned short RHOVX_INDEX_SOL = 1;
-  static unsigned short RHOE_INDEX_SOL;
-  static unsigned short RHOS_INDEX_SOL;
+  static const unsigned short RHOE_INDEX_SOL;
+  static const unsigned short RHOS_INDEX_SOL;
 
   /**
    * Mapping between the primitive variable gradient name and its position in the physical data
    */
   static constexpr unsigned short T_INDEX_GRAD = 0;
   static constexpr unsigned short VX_INDEX_GRAD = 1;
-  static unsigned short P_INDEX_GRAD;
+  static const unsigned short P_INDEX_GRAD;
 
   /**
    * Mapping between the primitivelimited variable name and its position in the physical data
@@ -74,8 +69,6 @@ protected:
   static constexpr unsigned short T_INDEX_LIM = 0;
   static constexpr unsigned short VX_INDEX_LIM = 1;
   static const unsigned short P_INDEX_LIM;
-
-public:
 
   /*!
 	 * \brief Default constructor of the class.
@@ -90,11 +83,10 @@ public:
    * \param[in] val_nprimvar - Number of primitive variables of the problem.
    * \param[in] val_nprimvargrad - Number of gradient of primitive variables of the problem.
    * \param[in] val_nprimvarlim - Number of primitive variables to limit in the problem.
-   * \param[in] lib_ptr - Pointer to the external library for physical-chemical properties
    * \param[in] config - Definition of the particular problem.
    */
   CReactiveEulerVariable(unsigned short val_nDim, unsigned short val_nvar, unsigned short val_nSpecies, unsigned short val_nprimvar,
-                         unsigned short val_nprimvargrad, unsigned short val_nprimvarlim, LibraryPtr lib_ptr, CConfig* config);
+                         unsigned short val_nprimvargrad, unsigned short val_nprimvarlim, CConfig* config);
 
   /*!
 	 * \overload Class constructor
@@ -107,13 +99,12 @@ public:
    * \param[in] val_nprimvar - Number of primitive variables of the problem.
    * \param[in] val_nprimvargrad - Number of gradient of primitive variables of the problem.
    * \param[in] val_nprimvarlim - Number of primitive variables to limit in the problem.
-   * \param[in] lib_ptr - Pointer to the external library for physical-chemical properties
    * \param[in] config - Definition of the particular problem.
 	 */
 	CReactiveEulerVariable(const su2double val_pressure, const RealVec& val_massfrac, const RealVec& val_velocity,
                          const su2double val_temperature, unsigned short val_nDim, unsigned short val_nvar,
                          unsigned short val_nSpecies, unsigned short val_nprimvar, unsigned short val_nprimvargrad,
-                         unsigned short val_nprimvarlim, LibraryPtr lib_ptr, CConfig* config);
+                         unsigned short val_nprimvarlim, CConfig* config);
 
 	/*!
 	 * \overload Class constructor
@@ -124,28 +115,10 @@ public:
    * \param[in] val_nprimvar - Number of primitive variables of the problem.
    * \param[in] val_nprimvargrad - Number of gradient of primitive variables of the problem.
    * \param[in] val_nprimvarlim - Number of primitive variables to limit in the problem.
-   * \param[in] lib_ptr - Pointer to the external library for physical-chemical properties
    * \param[in] config - Definition of the particular problem.
 	 */
-	CReactiveEulerVariable(const RealVec& val_solution, unsigned short val_nDim, unsigned short val_nvar,
-                         unsigned short val_nSpecies, unsigned short val_nprimvar, unsigned short val_nprimvargrad,
-                         unsigned short val_nprimvarlim, LibraryPtr lib_ptr, CConfig* config);
-
-  /*!
-	 * \overload Class constructor
-	 * \param[in] val_solution - Array with the flow value (initialization value).
-	 * \param[in] val_nDim - Number of dimensions of the problem.
-	 * \param[in] val_nvar - Number of variables of the problem.
-   * \param[in] val_nSpecies - Number of species in the mixture
-   * \param[in] val_nprimvar - Number of primitive variables of the problem.
-   * \param[in] val_nprimvargrad - Number of gradient of primitive variables of the problem.
-   * \param[in] val_nprimvarlim - Number of primitive variables to limit in the problem.
-   * \param[in] lib_ptr - Pointer to the external library for physical-chemical properties
-   * \param[in] config - Definition of the particular problem.
-	 */
-	CReactiveEulerVariable(su2double* val_solution, unsigned short val_nDim, unsigned short val_nvar,
-                         unsigned short val_nSpecies, unsigned short val_nprimvar, unsigned short val_nprimvargrad,
-                         unsigned short val_nprimvarlim, LibraryPtr lib_ptr, CConfig* config);
+	CReactiveEulerVariable(const RealVec& val_solution, unsigned short val_nDim, unsigned short val_nvar, unsigned short val_nSpecies,
+                         unsigned short val_nprimvar, unsigned short val_nprimvargrad, unsigned short val_nprimvarlim, CConfig* config);
 
   /*!
 	 * \brief Destructor of the class.
@@ -161,147 +134,19 @@ public:
   }
 
   /*!
+   * \brief Get the loaded library
+   * \return Pointer to loaded library
+   */
+  inline static LibraryPtr GetLibrary(void) {
+    return library;
+  }
+
+  /*!
    * \brief Get the number of species in the mixture.
    * \return Number of species in the problem.
    */
-  inline unsigned short GetnSpecies(void) {
+  inline static const unsigned short GetnSpecies(void) {
     return nSpecies;
-  }
-
-  /*!
-   * \brief Get the index of temperature in primitive variables array
-   * \return Index of temperature in primitive variables array
-   */
-  inline static const unsigned short GetT_INDEX_PRIM(void) {
-    return T_INDEX_PRIM;
-  }
-
-  /*!
-   * \brief Get the index of velocity along x in primitive variables array
-   * \return Index of velocity along x in primitive variables array
-   */
-  inline static const unsigned short GetVX_INDEX_PRIM(void) {
-    return VX_INDEX_PRIM;
-  }
-
-  /*!
-   * \brief Get the index of pressure in primitive variables array
-   * \return Index of pressure in primitive variables array
-   */
-  inline static const unsigned short GetP_INDEX_PRIM(void) {
-    return P_INDEX_PRIM;
-  }
-
-  /*!
-   * \brief Get the index of density in primitive variables array
-   * \return Index of density in primitive variables array
-   */
-  inline static const unsigned short GetRHO_INDEX_PRIM(void) {
-    return RHO_INDEX_PRIM;
-  }
-
-  /*!
-   * \brief Get the index of total enthalpy in primitive variables array
-   * \return Index of total enthalpy in primitive variables array
-   */
-  inline static const unsigned short GetH_INDEX_PRIM(void) {
-    return H_INDEX_PRIM;
-  }
-
-  /*!
-   * \brief Get the index of speed of sound in primitive variables array
-   * \return Index of speed of sound in primitive variables array
-   */
-  inline static const unsigned short GetA_INDEX_PRIM(void) {
-    return A_INDEX_PRIM;
-  }
-
-  /*!
-   * \brief Get the index of mass fractions in primitive variables array
-   * \return Index of mass fractions in primitive variables array
-   */
-  inline static const unsigned short GetRHOS_INDEX_PRIM(void) {
-    return RHOS_INDEX_PRIM;
-  }
-
-  /*!
-   * \brief Get the index of density in conserved variables array
-   * \return Index of density in conserved variables array
-   */
-  inline static const unsigned short GetRHO_INDEX_SOL(void) {
-    return RHO_INDEX_SOL;
-  }
-
-  /*!
-   * \brief Get the index of momentum along x in conserved variables array
-   * \return Index of momentum along x in conserved variables array
-   */
-  inline static const unsigned short GetRHOVX_INDEX_SOL(void) {
-    return RHOVX_INDEX_SOL;
-  }
-
-  /*!
-   * \brief Get the index of density times total energy in conserved variables array
-   * \return Index of density times totla energy in conserved variables array
-   */
-  inline static const unsigned short GetRHOE_INDEX_SOL(void) {
-    return RHOE_INDEX_SOL;
-  }
-
-  /*!
-   * \brief Get the index of partial densities in conserved variables array
-   * \return Index of partial densities in conserved variables array
-   */
-  inline static const unsigned short GetRHOS_INDEX_SOL(void) {
-    return RHOS_INDEX_SOL;
-  }
-
-  /*!
-   * \brief Get the index of temperature in primitive gradient
-   * \return Index of temperature in primitive gradient
-   */
-  inline static const unsigned short GetT_INDEX_GRAD(void) {
-    return T_INDEX_GRAD;
-  }
-
-  /*!
-   * \brief Get the index of velocity along x in primitive gradient
-   * \return Index of velocity along x in primitive gradient
-   */
-  inline static const unsigned short GetVX_INDEX_GRAD(void) {
-    return VX_INDEX_GRAD;
-  }
-
-  /*!
-   * \brief Get the index of pressure in primitive gradient
-   * \return Index of pressure in primitive gradient
-   */
-  inline static const unsigned short GetP_INDEX_GRAD(void) {
-    return P_INDEX_GRAD;
-  }
-
-  /*!
-   * \brief Get the index of temperature for limited variables
-   * \return Index of temperature for limited variables
-   */
-  inline static const unsigned short GetT_INDEX_LIM(void) {
-    return T_INDEX_LIM;
-  }
-
-  /*!
-   * \brief Get the index of velocity along x for limited variables
-   * \return Index of velocity along x for limited variables
-   */
-  inline static const unsigned short GetVX_INDEX_LIM(void) {
-    return VX_INDEX_LIM;
-  }
-
-  /*!
-   * \brief Get the index of pressure for limited variables
-   * \return Index of pressure for limited variables
-   */
-  inline static const unsigned short GetP_INDEX_LIM(void) {
-    return P_INDEX_LIM;
   }
 
   /*!
@@ -476,34 +321,32 @@ public:
 	 */
 	inline void SetEnthalpy(void) override {
     SU2_Assert(Solution != NULL,"The array of solution variables has not been allocated");
-    Primitive.at(H_INDEX_PRIM) = (Solution[RHOE_INDEX_SOL] + Primitive.at(P_INDEX_PRIM))/Solution[RHO_INDEX_SOL];
+    Primitive.at(H_INDEX_PRIM) = (Solution[RHOE_INDEX_SOL] + Primitive.at(P_INDEX_PRIM)) / Solution[RHO_INDEX_SOL];
   }
 
   /*!
    * \brief Calculates partial derivative of pressure w.r.t. conserved variables \f$\frac{\partial P}{\partial U}\f$
-   * \param[in] V - Actual state
    * \param[in] config - Configuration settings
-   * \param[in] dPdU - Array to assign the derivatives
+   * \param[in] dPdU - Passed-by-reference array to assign the derivatives
    */
   void CalcdPdU(su2double* V, CConfig* config, su2double* dPdU) override;
 
   /*!
-   * \brief Calculates partial derivative of temperature w.r.t. conserved variables \f$\frac{\partial T}{\partial U}\f$
-   * \param[in] V - Actual state
+   * \brief Calculates partial derivative of temperature w.r.t. conserved variables \f$\frac{\partial P}{\partial U}\f$
    * \param[in] config - Configuration settings
-   * \param[in] dTdU - Srray to assign the derivatives
+   * \param[in] dTdU - Passed-by-reference array to assign the derivatives
    */
   void CalcdTdU(su2double* V, CConfig* config, su2double* dTdU) override;
 
   /*!
-   * \brief Get partial derivative of pressure w.r.t. density \f$\frac{\partial P}{\partial \rho_s}\f$
+   * \brief Set partial derivative of pressure w.r.t. density \f$\frac{\partial P}{\partial \rho_s}\f$
    */
   inline su2double* GetdPdU(void) override {
     return dPdU.data();
   }
 
   /*!
-   * \brief Get partial derivative of temperature w.r.t. density \f$\frac{\partial T}{\partial \rho_s}\f$
+   * \brief Set partial derivative of temperature w.r.t. density \f$\frac{\partial T}{\partial \rho_s}\f$
    */
   inline su2double* GetdTdU(void) override {
     return dTdU.data();
@@ -598,7 +441,7 @@ public:
   }
 
   /*!
-   * \brief Get the projected velocity in a unitary vector direction.
+   * \brief Get the projected velocity in a unitary vector direction (compressible solver).
    * \param[in] val_vector - Direction of projection.
    * \return Value of the projected velocity.
    */
@@ -608,28 +451,40 @@ public:
   }
 
   /*!
-   * \brief Get the squared velocity.
-   * \return Value of the squared velocity.
+   * \brief Set the velocity vector from the old solution.
+   * \param[in] val_velocity - Pointer to the velocity.
    */
-  inline su2double GetVelocity2(void) override {
-    return std::inner_product(Primitive.cbegin() + VX_INDEX_PRIM, Primitive.cbegin() + (VX_INDEX_PRIM + nDim),
-                              Primitive.cbegin() + VX_INDEX_PRIM, 0.0);
-  }
+  void SetVelocity_Old(su2double* val_velocity) override;
 
   /*!
-   * \brief Get the specific heat at constant pressure.
-   * \return Value of the specific heat at constant pressure.
+   * \brief Get the laminar viscosity of the mixture.
+   * \return Laminar viscoisty of the mixture
    */
   inline su2double GetSpecificHeatCp(void) override {
     return Cp;
   }
 
   /*!
-   * \brief Set the velocity vector from the old solution.
-   * \param[in] val_velocity - Pointer to the velocity.
+   * \brief Get the laminar viscosity of the mixture.
+   * \return Laminar viscoisty of the mixture
    */
-  void SetVelocity_Old(su2double* val_velocity) override;
+  inline void SetSpecificHeatCp(su2double val_Cp) override {
+    Cp = val_Cp;
+  }
+
 };
+const unsigned short CReactiveEulerVariable::P_INDEX_PRIM = CReactiveEulerVariable::VX_INDEX_PRIM + CReactiveEulerVariable::nDim;
+const unsigned short CReactiveEulerVariable::RHO_INDEX_PRIM = CReactiveEulerVariable::P_INDEX_PRIM + 1;
+const unsigned short CReactiveEulerVariable::H_INDEX_PRIM = CReactiveEulerVariable::RHO_INDEX_PRIM + 1;
+const unsigned short CReactiveEulerVariable::A_INDEX_PRIM = CReactiveEulerVariable::H_INDEX_PRIM + 1;
+const unsigned short CReactiveEulerVariable::RHOS_INDEX_PRIM = CReactiveEulerVariable::A_INDEX_PRIM + 1;
+
+const unsigned short CReactiveEulerVariable::RHOE_INDEX_SOL = CReactiveEulerVariable::RHOVX_INDEX_SOL + CReactiveEulerVariable::nDim;
+const unsigned short CReactiveEulerVariable::RHOS_INDEX_SOL = CReactiveEulerVariable::RHOE_INDEX_SOL + 1;
+
+const unsigned short CReactiveEulerVariable::P_INDEX_GRAD = CReactiveEulerVariable::VX_INDEX_GRAD + CReactiveEulerVariable::nDim;
+
+const unsigned short CReactiveEulerVariable::P_INDEX_LIM = CReactiveEulerVariable::VX_INDEX_LIM + CReactiveEulerVariable::nDim;
 
 /*! \class CReactiveNSVariable
  *  \brief Main class for defining a variable for chemically reacting viscous flows.
@@ -637,23 +492,23 @@ public:
  */
 class CReactiveNSVariable: public CReactiveEulerVariable {
 public:
-  using RealMatrix = Eigen::MatrixXd;
+  typedef Eigen::Matrix<su2double,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor> RealMatrix;
 
 protected:
-  su2double  Laminar_Viscosity;	/*!< \brief Laminar viscosity of the fluid. */
+	RealMatrix Diffusion_Coeffs;    /*!< \brief Binary diffusion coefficients of the mixture. */
+  su2double  Laminar_Viscosity;	/*!< \brief Viscosity of the fluid. */
   su2double  Thermal_Conductivity;   /*!< \brief Thermal conductivity of the gas mixture. */
-  RealMatrix Diffusion_Coeffs;    /*!< \brief Binary diffusion coefficients of the mixture. */
   su2double  Eddy_Viscosity;	/*!< \brief Eddy Viscosity. */
   std::array<su2double,3> Vorticity;    /*!< \brief Vorticity of the fluid. */
   su2double  StrainMag;       /*!< \brief Magnitude of rate of strain tensor. */
 
 public:
-  static unsigned short RHOS_INDEX_GRAD; /*!< \brief Index for position of mole fractions in primitives gradient. */
+  static const unsigned short RHOS_INDEX_GRAD;
 
   /*!
 	 * \brief Default constructor of the class.
 	 */
-  CReactiveNSVariable(): CReactiveEulerVariable(), Laminar_Viscosity(), Thermal_Conductivity(), Eddy_Viscosity(), Vorticity(), StrainMag() {}
+  CReactiveNSVariable():CReactiveEulerVariable(),Laminar_Viscosity(),Thermal_Conductivity(),Eddy_Viscosity(),Vorticity(),StrainMag() {}
 
   /*!
    * \overloaded Class constructor
@@ -663,11 +518,10 @@ public:
    * \param[in] val_nprimvar - Number of primitive variables of the problem.
    * \param[in] val_nprimvargrad - Number of gradient of primitive variables of the problem.
    * \param[in] val_nprimvarlim - Number of primitive variables to limit in the problem.
-   * \param[in] lib_ptr - Pointer to the external library for physical-chemical properties
    * \param[in] config - Definition of the particular problem.
    */
   CReactiveNSVariable(unsigned short val_nDim, unsigned short val_nvar, unsigned short val_nSpecies, unsigned short val_nprimvar,
-                      unsigned short val_nprimvargrad, unsigned short val_nprimvarlim, LibraryPtr lib_ptr, CConfig* config);
+                      unsigned short val_nprimvargrad, unsigned short val_nprimvarlim, CConfig* config);
 
   /*!
 	 * \overload Class constructor
@@ -680,29 +534,11 @@ public:
    * \param[in] val_nprimvar - Number of gradient of primitive variables of the problem.
    * \param[in] val_nprimvargrad - Number of gradient of primitive variables of the problem.
    * \param[in] val_nprimvarlim - Number of primitive variables to limit in the problem.
-   * \param[in] lib_ptr - Pointer to the external library for physical-chemical properties
    * \param[in] config - Definition of the particular problem.
 	 */
-	CReactiveNSVariable(const su2double val_pressure, const RealVec& val_massfrac, const RealVec& val_velocity,
-                      const su2double val_temperature, unsigned short val_nDim, unsigned short val_nvar,
-                      unsigned short val_nSpecies, unsigned short val_nprimvar, unsigned short val_nprimvargrad,
-                      unsigned short val_nprimvarlim, LibraryPtr lib_ptr, CConfig* config);
-
-  /*!
-	 * \overload Class constructor
-	 * \param[in] val_solution - Vector with the flow value (initialization value).
-	 * \param[in] val_nDim - Number of dimensions of the problem.
-	 * \param[in] val_nvar - Number of conserved variables.
-   * \param[in] val_nSpecies - Number of species in the mixture
-   * \param[in] val_nprimvar - Number of primitive variables of the problem.
-   * \param[in] val_nprimvargrad - Number of gradient of primitive variables of the problem.
-   * \param[in] val_nprimvarlim - Number of primitive variables to limit in the problem.
-   * \param[in] lib_ptr - Pointer to the external library for physical-chemical properties
-   * \param[in] config - Definition of the particular problem.
-	 */
-	CReactiveNSVariable(const RealVec& val_solution, unsigned short val_nDim, unsigned short val_nvar,
-                      unsigned short val_nSpecies, unsigned short val_nprimvar, unsigned short val_nprimvargrad,
-                      unsigned short val_nprimvarlim, LibraryPtr lib_ptr, CConfig* config);
+	CReactiveNSVariable(const su2double val_pressure, const RealVec& val_massfrac, const RealVec& val_velocity,const su2double val_temperature,
+                      unsigned short val_nDim, unsigned short val_nvar, unsigned short val_nSpecies, unsigned short val_nprimvar,
+                      unsigned short val_nprimvargrad,unsigned short val_nprimvarlim, CConfig* config);
 
   /*!
 	 * \overload Class constructor
@@ -713,25 +549,15 @@ public:
    * \param[in] val_nprimvar - Number of primitive variables of the problem.
    * \param[in] val_nprimvargrad - Number of gradient of primitive variables of the problem.
    * \param[in] val_nprimvarlim - Number of primitive variables to limit in the problem.
-   * \param[in] lib_ptr - Pointer to the external library for physical-chemical properties
    * \param[in] config - Definition of the particular problem.
 	 */
-	CReactiveNSVariable(su2double* val_solution, unsigned short val_nDim, unsigned short val_nvar,
-                      unsigned short val_nSpecies, unsigned short val_nprimvar, unsigned short val_nprimvargrad,
-                      unsigned short val_nprimvarlim, LibraryPtr lib_ptr, CConfig* config);
+	CReactiveNSVariable(const RealVec& val_solution, unsigned short val_nDim, unsigned short val_nvar, unsigned short val_nSpecies,
+                      unsigned short val_nprimvar, unsigned short val_nprimvargrad, unsigned short val_nprimvarlim, CConfig* config);
 
   /*!
 	 * \brief Destructor of the class.
 	 */
-	virtual ~CReactiveNSVariable() = default;
-
-  /*!
-   * \brief Get the index of mole fractions in primitive gradient
-   * \return Index of mole fractions in primitive gradient
-   */
-  inline static const unsigned short GetRHOS_INDEX_GRAD(void) {
-    return RHOS_INDEX_GRAD;
-  }
+	virtual ~CReactiveNSVariable() {};
 
   /*!
    * \brief Set all primitive variables and transport properties for compressible flows.
@@ -759,8 +585,8 @@ public:
 	 * \brief Get the species diffusion coefficient.
 	 * \return Value of the species diffusion coefficient.
 	 */
-  inline su2double* GetDiffusionCoeff(void) override {
-    return Diffusion_Coeffs.data();
+  inline RealMatrix GetBinaryDiffusionCoeff(void) {
+    return Diffusion_Coeffs;
   }
 
   /*!
@@ -833,7 +659,7 @@ public:
    * \param[in] val_limiter - flag for limiter
    */
   inline bool SetStrainMag(bool val_limiter) override;
-
 };
+const unsigned short CReactiveNSVariable::RHOS_INDEX_GRAD = CReactiveNSVariable::P_INDEX_GRAD + 1;
 
 #endif

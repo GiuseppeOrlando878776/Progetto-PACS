@@ -30,8 +30,6 @@ protected:
   bool  turbulent,   /*!< \brief True if a turbulence model is used. */
         tkeNeeded;   /*!< \brief True if a turbulent kinetic energy model is used. */
 
-  bool  US_System;  /*!< \brief True if using US units. */
-
   RealVec   Lower_Limit,   /*!< \brief Lower limit conserved variables. */
             Upper_Limit;   /*!< \brief Upper limit conserved variables. */
 
@@ -44,34 +42,21 @@ protected:
 
   RealVec   PrimVar_i,  /*!< \brief Auxiliary nPrimVarGrad vector for storing primitive at point i. */
             PrimVar_j,  /*!< \brief Auxiliary nPrimVarGrad vector for storing primitive at point j. */
-            PrimVar_Vertex;  /*!< \brief Auxiliary nPrimVarGrad vector for storing primitive at boundary node. */
+            PrimVar_Vertex,  /*!< \brief Auxiliary nPrimVarGrad vector for storing primitive at boundary node. */
+            PrimVar_Average,  /*!< \brief Auxiliary nPrimVarGrad vector for storing average of primitive.. */
+            Partial_Res;  /*!< \brief Auxiliary nPrimVarGrad vector. */
 
   RealVec   Prim_i, /*!< \brief Auxiliary nPrimVarLim vector for storing primitive at point i. */
             Prim_j, /*!< \brief Auxiliary nPrimVarLim vector for storing primitive at point j. */
             Primitive; /*!< \brief Auxiliary nPrimVarLim vector for storing primitive at boundary node. */
 
-  RealVec   Buffer_Receive_U, /*!< \brief Auxiliary vector to receive information in case of parallel simulation. */
-            Buffer_Send_U;    /*!< \brief Auxiliary vector to send information in case of parallel simulation. */
+  RealMatrix C_Mat,S_Mat; /*!< \brief Auxiliary matrices for least squares computation. */
 
-  RealVec Ys_i, Ys_j;  /*!< \brief Auxiliary vectors to store mass fractions at node i and j. */
+  RealVec Ys_i,Ys_j;  /*!< \brief Auxiliary vectors to store mass fractions at node i and j. */
   RealVec Ys;         /*!< \brief Auxiliary vector to store mass fractions. */
 
-protected:
-  unsigned short T_INDEX_PRIM, VX_INDEX_PRIM,
-                 P_INDEX_PRIM, RHO_INDEX_PRIM,
-                 H_INDEX_PRIM, A_INDEX_PRIM,
-                 RHOS_INDEX_PRIM;               /*!< \brief Mapping for position in primitives array. */
-
-  unsigned short RHO_INDEX_SOL, RHOVX_INDEX_SOL,
-                 RHOE_INDEX_SOL, RHOS_INDEX_SOL; /*!< \brief Mapping for position in conserved array. */
-
-  unsigned short T_INDEX_GRAD, VX_INDEX_GRAD,
-                 P_INDEX_GRAD;                 /*!< \brief Mapping for position in primitives gradient. */
-
-  unsigned short T_INDEX_LIM, VX_INDEX_LIM,
-                 P_INDEX_LIM;                 /*!< \brief Mapping for position for limited variables. */
-
 public:
+
   /*!
 	 * \brief Default constructor of the class.
 	 */
@@ -87,7 +72,7 @@ public:
 	/*!
 	 * \brief Destructor of the class.
 	 */
-	virtual ~CReactiveEulerSolver() = default;
+	virtual ~CReactiveEulerSolver() {}
 
   /*!
    * \brief Set the simulation to explicit
@@ -97,11 +82,18 @@ public:
   }
 
   /*!
-   * \brief Get the pointer to the external library for physical-chemical properties
-   */
-  inline static LibraryPtr GetLibrary(void) {
-    return library;
-  }
+ 	 * \brief Looking for non physical points in the initial solution
+ 	 * \param[in] config - Definition of the particular problem.
+ 	 */
+ 	void Check_FreeStream_Solution(CConfig* config);
+
+  /*!
+	 * \brief Reading files in case of restart
+	 * \param[in] geometry - Geometrical definition of the problem.
+	 * \param[in] config - Definition of the particular problem.
+   * \param[in] val_filename - Name of the file for the restart
+	 */
+  void Load_Restart(CGeometry* geometry, CConfig* config, std::string val_filename);
 
   /*!
    * \brief Set primitive variables in each point reporting non physical data
@@ -181,8 +173,7 @@ public:
    * \param[in] iMesh - Index of the mesh in multigrid computations.
    * \param[in] Iteration - Index of the current iteration.
    */
-  void SetTime_Step(CGeometry* geometry, CSolver** solver_container, CConfig* config,
-                    unsigned short iMesh, unsigned long Iteration) override;
+  void SetTime_Step(CGeometry* geometry, CSolver** solver_container, CConfig* config, unsigned short iMesh, unsigned long Iteration) override;
 
   /*!
    * \brief Compute the time step for solving the Navier-Stokes equations.
@@ -192,8 +183,8 @@ public:
    * \param[in] iMesh - Index of the mesh in multigrid computations.
    * \param[in] Iteration - Index of the current iteration.
    */
-   void SetResidual_DualTime(CGeometry* geometry, CSolver** solver_container, CConfig* config, unsigned short iRKStep,
-                             unsigned short iMesh, unsigned short RunTime_EqSystem) override;
+   void SetResidual_DualTime(CGeometry* geometry, CSolver** solver_container, CConfig* config,
+                             unsigned short iRKStep, unsigned short iMesh, unsigned short RunTime_EqSystem) override;
 
   /*!
    * \brief Compute the spatial integration static const unsigned a centered scheme.
@@ -215,8 +206,7 @@ public:
    * \param[in] config - Definition of the particular problem.
    * \param[in] iMesh - Index of the mesh in multigrid computations.
    */
-  void Upwind_Residual(CGeometry* geometry, CSolver** solver_container, CNumerics* numerics,
-                       CConfig* config, unsigned short iMesh) override;
+  void Upwind_Residual(CGeometry* geometry, CSolver** solver_container, CNumerics* numerics, CConfig* config, unsigned short iMesh) override;
 
    /*!
     * \brief Source term integration.
@@ -234,7 +224,7 @@ public:
     * \brief Set the free-stream solution all over the domain.
     * \param[in] config - Definition of the particular problem.
     */
-   void SetFreeStream_Solution(CConfig* config) override;
+    void SetFreeStream_Solution(CConfig* config) override;
 
    /*!
     * \brief Impose via the residual the Euler wall boundary condition.
@@ -244,8 +234,7 @@ public:
     * \param[in] config - Definition of the particular problem.
     * \param[in] val_marker - Surface marker where the boundary condition is applied.
     */
-   void BC_Euler_Wall(CGeometry* geometry, CSolver** solver_container, CNumerics* numerics,
-                      CConfig* config, unsigned short val_marker) override;
+   void BC_Euler_Wall(CGeometry* geometry, CSolver** solver_container, CNumerics* numerics, CConfig* config, unsigned short val_marker) override;
 
    /*!
     * \brief Impose the far-field boundary condition.
@@ -268,8 +257,8 @@ public:
     * \param[in] config - Definition of the particular problem.
     * \param[in] val_marker - Surface marker where the boundary condition is applied.
     */
-   void BC_Inlet(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics, CNumerics* visc_numerics,
-                 CConfig* config, unsigned short val_marker) override;
+   void BC_Inlet(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics,
+                 CNumerics* visc_numerics, CConfig* config, unsigned short val_marker) override;
 
    /*!
     * \brief Impose a supersonic inlet boundary condition.
@@ -280,8 +269,8 @@ public:
     * \param[in] config - Definition of the particular problem.
     * \param[in] val_marker - Surface marker where the boundary condition is applied.
     */
-   void BC_Supersonic_Inlet(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics, CNumerics* visc_numerics,
-                            CConfig* config, unsigned short val_marker) override;
+   void BC_Supersonic_Inlet(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics,
+                            CConfig *config, unsigned short val_marker) override;
 
    /*!
     * \brief Impose a supersonic outlet boundary condition.
@@ -292,8 +281,8 @@ public:
     * \param[in] config - Definition of the particular problem.
     * \param[in] val_marker - Surface marker where the boundary condition is applied.
     */
-   void BC_Supersonic_Outlet(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics, CNumerics* visc_numerics,
-                             CConfig* config, unsigned short val_marker) override;
+   void BC_Supersonic_Outlet(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics,
+                             CConfig *config, unsigned short val_marker) override {}
 
    /*!
     * \brief Impose the outlet boundary condition.
@@ -308,11 +297,23 @@ public:
                   CConfig* config, unsigned short val_marker) override;
 
    /*!
-    * \brief Set the initial conditions.
+    * \brief Impose the symmetry plane boundary condition.
     * \param[in] geometry - Geometrical definition of the problem.
-    * \param[in] solver_container - Container with all the solutions.
+    * \param[in] solver_container - Container vector with all the solutions.
+    * \param[in] conv_numerics - Description of the numerical method for convective term.
+    * \param[in] visc_numerics - Description of the numerical method for viscous term.
     * \param[in] config - Definition of the particular problem.
-    * \param[in] ExtIter - External iteration.
+    * \param[in] val_marker - Surface marker where the boundary condition is applied.
+    */
+   void BC_Sym_Plane(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics,
+                     CNumerics* visc_numerics, CConfig* config, unsigned short val_marker) override {}
+
+    /*!
+     * \brief Set the initial conditions.
+     * \param[in] geometry - Geometrical definition of the problem.
+     * \param[in] solver_container - Container with all the solutions.
+     * \param[in] config - Definition of the particular problem.
+     * \param[in] ExtIter - External iteration.
     */
    void SetInitialCondition(CGeometry** geometry, CSolver*** solver_container, CConfig *config, unsigned long ExtIter) override;
 
@@ -346,34 +347,6 @@ public:
     * \brief Get turbulent Prandtl number.
     */
    virtual su2double GetPrandtl_Turb() {}
-
- protected:
-   /*!
-  	* \brief Looking for non physical points in the initial solution.
-  	* \param[in] config - Definition of the particular problem.
-  	*/
-   void Check_FreeStream_Solution(CConfig* config);
-
-   /*!
-    * \brief Looking for coherence in species order definition.
-    * \param[in] config - Definition of the particular problem.
-    */
-   void Check_FreeStream_Species_Order(CConfig* config);
-
-   /*!
- 	  * \brief Reading files in case of restart
- 	  * \param[in] geometry - Geometrical definition of the problem.
- 	  * \param[in] config - Definition of the particular problem.
- 	  */
-   virtual void Load_Restart(CGeometry* geometry, CConfig* config);
-
-   /*!
- 	  * \brief Reading files in case of restart
- 	  * \param[in] geometry - Geometrical definition of the problem.
- 	  * \param[in] config - Definition of the particular problem.
- 	  */
-   void Read_SU2_Restart_Metadata(CGeometry* geometry, CConfig* config);
-
 };
 
 /*! \class CReactiveNSSolver
@@ -382,25 +355,20 @@ public:
  */
 class CReactiveNSSolver:public CReactiveEulerSolver {
 protected:
-  su2double Viscosity_Inf;	/*!< \brief Viscosity at the infinity. */
 
-  RealVec Xs_i, Xs_j;  /*!< \brief Auxiliary vectors to store mole fractions at node i and j. */
-  RealVec Xs;         /*!< \brief Auxiliary vector to store mole fractions. */
+  su2double Viscosity_Inf;	/*!< \brief Viscosity at the infinity. */
 
   su2double Tke_Inf;	/*!< \brief Turbulent kinetic energy at infinity. */
 
   su2double Prandtl_Lam,    /*!< \brief Laminar Prandtl number. */
             Prandtl_Turb;   /*!< \brief Turbulent Prandtl number. */
 
-protected:
-  unsigned short RHOS_INDEX_GRAD; /*!< \brief Index for position of mole fractions in primitive gradient. */
-
 public:
 
   /*!
 	 * \brief Default constructor of the class.
 	 */
-  CReactiveNSSolver(): CReactiveEulerSolver(), Viscosity_Inf(), RHOS_INDEX_GRAD() {}
+  CReactiveNSSolver(): CReactiveEulerSolver(), Viscosity_Inf() {}
 
 	/*!
 	 * \overloaded Constructor of the class
@@ -455,7 +423,7 @@ public:
    * \param[in] Output - boolean to determine whether to print output.
    * \return - The number of non-physical points.
    */
-   unsigned long SetPrimitive_Variables(CSolver** solver_container, CConfig* config, bool Output) override;
+  unsigned long SetPrimitive_Variables(CSolver** solver_container, CConfig* config, bool Output) override;
 
   /*!
    * \brief Compute the time step for solving the Navier-Stokes equations.
@@ -479,6 +447,18 @@ public:
    */
    void Viscous_Residual(CGeometry* geometry, CSolver** solver_container, CNumerics* numerics,
                          CConfig* config, unsigned short iMesh, unsigned short iRKStep) override;
+
+  /*!
+   * \brief Impose the Navier-Stokes boundary condition (strong).
+   * \param[in] geometry - Geometrical definition of the problem.
+   * \param[in] solver_container - Container vector with all the solutions.
+   * \param[in] conv_numerics - Description of the numerical method for convective term.
+   * \param[in] visc_numerics - Description of the numerical method for viscous term.
+   * \param[in] config - Definition of the particular problem.
+   * \param[in] val_marker - Surface marker where the boundary condition is applied.
+  */
+  void BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics,
+                        CNumerics* visc_numerics, CConfig* config, unsigned short val_marker) override;
 
   /*!
    * \brief Impose an isothermal wall boundary condition (no-slip).
@@ -505,14 +485,6 @@ public:
   inline su2double GetPrandtl_Turb(void) override {
     return Prandtl_Turb;
   }
-
-protected:
-  /*!
- 	 * \brief Reading files in case of restart
- 	 * \param[in] geometry - Geometrical definition of the problem.
- 	 * \param[in] config - Definition of the particular problem.
- 	 */
-  void Load_Restart(CGeometry* geometry, CConfig* config) override;
 
 };
 

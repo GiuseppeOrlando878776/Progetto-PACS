@@ -21,27 +21,44 @@ protected:
 
   unsigned short nSpecies; /*!< \brief Number of species in the mixture. */
 
-  RealVec Phi_i,Phi_j;  /*!< \brief Vectors to describe the variables of the problem used in the AUSM scheme. */
+  RealVec Phi_i, Phi_j;  /*!< \brief Vectors to describe the variables of the problem used in the AUSM scheme. */
+
+private:
+  unsigned short T_INDEX_PRIM, VX_INDEX_PRIM,
+                 P_INDEX_PRIM, RHO_INDEX_PRIM,
+                 H_INDEX_PRIM, A_INDEX_PRIM,
+                 RHOS_INDEX_PRIM;               /*!< \brief Mapping for position in primitives array. */
+
+  unsigned short RHO_INDEX_SOL, RHOVX_INDEX_SOL,
+                 RHOE_INDEX_SOL, RHOS_INDEX_SOL; /*!< \brief Mapping for position in conserved array. */
+
+  unsigned short T_INDEX_GRAD, VX_INDEX_GRAD,
+                 P_INDEX_GRAD;                 /*!< \brief Mapping for position in primitives gradient. */
+
+  unsigned short T_INDEX_LIM, VX_INDEX_LIM,
+                 P_INDEX_LIM;                 /*!< \brief Mapping for position for limited variables. */
 
 public:
-
   /*!
    * \brief Default constructor of the class.
    */
-  CUpwReactiveAUSM(): CNumerics(),implicit(),nSpecies() {}
+  CUpwReactiveAUSM(): CNumerics(), implicit(), nSpecies(), T_INDEX_PRIM(), VX_INDEX_PRIM(), P_INDEX_PRIM(), RHO_INDEX_PRIM(), H_INDEX_PRIM(),
+                      A_INDEX_PRIM(), RHOS_INDEX_PRIM(), RHO_INDEX_SOL(), RHOVX_INDEX_SOL(), RHOE_INDEX_SOL(), RHOS_INDEX_SOL(),
+                      T_INDEX_GRAD(), VX_INDEX_GRAD(), P_INDEX_GRAD(), T_INDEX_LIM(), VX_INDEX_LIM(), P_INDEX_LIM() {}
 
   /*!
 	 * \brief Constructor of the class.
 	 * \param[in] val_nDim - Number of dimensions of the problem.
 	 * \param[in] val_nVar - Number of variables of the problem.
 	 * \param[in] config - Definition of the particular problem.
+   * \param[in] lib_ptr - Pointer to the external library for physical-chemical properties
 	 */
-  CUpwReactiveAUSM(unsigned short val_nDim, unsigned short val_nVar, CConfig* config);
+  CUpwReactiveAUSM(unsigned short val_nDim, unsigned short val_nVar, CConfig* config, LibraryPtr lib_ptr);
 
   /*!
 	 * \brief Destructor of the class.
 	 */
-	virtual ~CUpwReactiveAUSM() {}
+	virtual ~CUpwReactiveAUSM() = default;
 
   /*!
 	 * \brief Compute the residual associated to convective flux between two nodes i and j.
@@ -71,7 +88,6 @@ public:
   using RealMatrix = CReactiveNSVariable::RealMatrix;
   using LibraryPtr = CReactiveEulerVariable::LibraryPtr;
   using Vec = Eigen::VectorXd;
-  typedef std::unique_ptr<su2double[]> SmartArr;
 
 protected:
   LibraryPtr library; /*!< \brief Smart pointer to the library that computes physical-chemical properties. */
@@ -97,112 +113,59 @@ protected:
   RealMatrix Grad_Xs;         /*!< \brief Auxiliary matrix for mean gradient of mole fractions. */
 
 private:
+  unsigned short T_INDEX_PRIM, VX_INDEX_PRIM,
+                 P_INDEX_PRIM, RHO_INDEX_PRIM,
+                 H_INDEX_PRIM, A_INDEX_PRIM,
+                 RHOS_INDEX_PRIM;               /*!< \brief Mapping for position in primitives array. */
+
+  unsigned short RHO_INDEX_SOL, RHOVX_INDEX_SOL,
+                 RHOE_INDEX_SOL, RHOS_INDEX_SOL; /*!< \brief Mapping for position in conserved array. */
+
+  unsigned short T_INDEX_GRAD, VX_INDEX_GRAD,
+                 P_INDEX_GRAD, RHOS_INDEX_GRAD;  /*!< \brief Mapping for position in primitives gradient. */
+
+  unsigned short T_INDEX_LIM, VX_INDEX_LIM,
+                 P_INDEX_LIM;                 /*!< \brief Mapping for position for limited variables. */
+
+private:
   RealMatrix Dij_i, Dij_j;      /*!< \brief Binary diffusion coefficients at point i and j. */
   RealMatrix Mean_Dij;          /*!< \brief Harmonic average of binary diffusion coefficients at point i and j. */
 
-  RealMatrix Gamma,Gamma_tilde;  /*!< \brief Auxiliary matrices for solving Stefan-Maxwell equations. */
+  RealMatrix Gamma, Gamma_tilde;  /*!< \brief Auxiliary matrices for solving Stefan-Maxwell equations. */
 
   RealVec hs;                   /*!< \brief Auxiliary vector to store partial enthalpy for species diffusion flux contribution. */
 
+  Vec Jd;                       /*!< \brief Auxiliary vectors to store S-M solution. */
+
+  unsigned short T_INDEX_AVGGRAD,
+                 VX_INDEX_AVGGRAD,
+                 RHOS_INDEX_AVGGRAD;  /*!< \brief Mapping between the primitive variable gradient name
+                                                  for average computations and its position in the physical data. */
 public:
-
-  /**
-   * Mapping between the primitive variable gradient name
-   * for average computations and its position in the physical data
-   */
-  static constexpr unsigned short T_INDEX_AVGGRAD = 0;
-  static constexpr unsigned short VX_INDEX_AVGGRAD = 1;
-  static const unsigned short RHOS_INDEX_AVGGRAD;
-
   /*!
    * \brief Default constructor of the class.
    */
-  CAvgGradReactive_Flow(): CNumerics(),implicit(),limiter(),nPrimVar(),nPrimVarAvgGrad(),nSpecies() {}
+  CAvgGradReactive_Flow(): CNumerics(), implicit(), limiter(), nPrimVar(), nPrimVarAvgGrad(), nSpecies(), T_INDEX_PRIM(), VX_INDEX_PRIM(),
+                           P_INDEX_PRIM(), RHO_INDEX_PRIM(), H_INDEX_PRIM(), A_INDEX_PRIM(), RHOS_INDEX_PRIM(), RHO_INDEX_SOL(),
+                           RHOVX_INDEX_SOL(), RHOE_INDEX_SOL(), RHOS_INDEX_SOL(), T_INDEX_GRAD(), VX_INDEX_GRAD(), P_INDEX_GRAD(),
+                           RHOS_INDEX_GRAD(), T_INDEX_LIM(), VX_INDEX_LIM(), P_INDEX_LIM(), T_INDEX_AVGGRAD(), VX_INDEX_AVGGRAD(),
+                           RHOS_INDEX_AVGGRAD() {}
 
   /*!
    * \brief Constructor of the class.
    * \param[in] val_nDim - Number of dimension of the problem.
    * \param[in] val_nVar - Number of variables of the problem.
    * \param[in] config - Definition of the particular problem.
+   * \param[in] lib_ptr - Pointer to the external library for physical-chemical properties
    */
-  CAvgGradReactive_Flow(unsigned short val_nDim, unsigned short val_nVar, CConfig* config);
+  CAvgGradReactive_Flow(unsigned short val_nDim, unsigned short val_nVar, CConfig* config, LibraryPtr lib_ptr);
 
   /*!
    * \brief Destructor of the class.
    */
-  virtual ~CAvgGradReactive_Flow() {}
+  virtual ~CAvgGradReactive_Flow() = default;
 
   /*!
-   * \brief Compute the diffusive flux along a certain direction
-   * \param[in] val_density - Density of the mixture.
-   * \param[in] val_alpha - Parameter for artifical diffusion.
-   * \param[in] val_Dij - Harmonic average of binary diffusion coefficients.
-   * \param[in] val_xs - Molar fractions.
-   * \param[in] val_grad_xs - Component along the desired dimension of gradient of molar fractions.
-   * \param[in] val_ys - Mass fractions.
-   */
-  Vec Solve_SM(const su2double val_density, const su2double val_alpha, const RealMatrix& val_Dij,
-               const RealVec& val_xs, const Vec& val_grad_xs, const RealVec& val_ys);
-
-  /*!
-   * \brief Compute projection of the viscous fluxes using Ramshaw self-consisten modification
-   * \param[in] val_primvar - Primitive variables.
-   * \param[in] val_grad_primvar - Gradient of the primitive variables.
-   * \param[in] val_normal - Normal vector, the norm of the vector is the area of the face.
-   * \param[in] val_viscosity - Laminar viscosity.
-   * \param[in] val_eddy_viscosity - Eddy viscosity.
-   * \param[in] val_thermal_conductivity - Thermal Conductivity.
-   * \param[in] val_turb_ke - Turbulent kinetic energy.
-   * \param[in] val_diffusioncoeff - Effective diffusion coefficients for each species in the mixture.
-   * \param[in] config - Definition of the particular problem
-   */
-  virtual void GetViscousProjFlux(const Vec& val_primvar, const RealMatrix& val_grad_primvar, SmartArr val_normal,
-                                  const su2double val_viscosity, const su2double val_eddy_viscosity,
-                                  const su2double val_therm_conductivity, const su2double val_turb_ke,
-                                  const RealVec& val_diffusioncoeff, CConfig* config);
-
-  /*!
-   * \brief Compute projection of the viscous fluxes solving Stefan-Maxwell equations
-   * \param[in] val_primvar - Primitive variables.
-   * \param[in] val_grad_primvar - Gradient of the primitive variables.
-   * \param[in] val_normal - Normal vector, the norm of the vector is the area of the face.
-   * \param[in] val_viscosity - Laminar viscosity.
-   * \param[in] val_eddy_viscosity - Eddy viscosity.
-   * \param[in] val_thermal_conductivity - Thermal Conductivity.
-   * \param[in] val_turb_ke - Turbulent kinetic energy.
-   * \param[in] val_Dij - Harmonic average of binary diffusion coefficients.
-   * \param[in] config - Definition of the particular problem
-   */
-  virtual void GetViscousProjFlux(const Vec& val_primvar, const RealMatrix& val_grad_primvar, SmartArr val_normal,
-                                  const su2double val_viscosity, const su2double val_eddy_viscosity,
-                                  const su2double val_therm_conductivity, const su2double val_turb_ke,
-                                  const RealMatrix& val_Dij, CConfig* config);
-
-  /*!
-   * \brief Approximation of Viscous NS Jacobians in Thermochemical Non Equilibrium.
-   * \param[in] val_Mean_PrimVar - Mean value of the primitive variables.
-   * \param[in] val_Mean_GradPriVar - Mean value of the gradient of the primitive variables.
-   * \param[in] val_diffusion_coeff - Value of diffusion coefficients for each species
-   * \param[in] val_laminar_viscosity - Value of the laminar viscosity.
-   * \param[in] val_eddy_viscosity - Value of the eddy viscosity.
-   * \param[in] val_thermal_conductivity - Value of the thermal conductivity.
-   * \param[in] val_turb_ke - Value of the turbulent kinetic energy.
-   * \param[in] val_dist_ij - Distance between the points.
-   * \param[in] val_normal - Normal vector
-   * \param[in] val_dS - Area of the face between two nodes.
-   * \param[in] val_Proj_Visc_Flux - Pointer to the projected viscous flux.
-   * \param[out] val_Proj_Jac_Tensor_i - Pointer to the projected viscous Jacobian at point i.
-   * \param[out] val_Proj_Jac_Tensor_j - Pointer to the projected viscous Jacobian at point j.
-   * \param[in] config - Definition of the particular problem
-  */
-  virtual void GetViscousProjJacs(const Vec& val_Mean_PrimVar, const RealMatrix& val_Mean_GradPrimVar,
-                                  const RealVec& val_diffusion_coeff, const su2double val_laminar_viscosity,
-                                  const su2double val_eddy_viscosity, const su2double val_thermal_conductivity,
-                                  const su2double val_turb_ke, const su2double val_dist_ij, SmartArr val_normal,
-                                  const su2double val_dS, su2double* val_Proj_Visc_Flux, su2double** val_Proj_Jac_Tensor_i,
-                                  su2double** val_Proj_Jac_Tensor_j, CConfig* config);
-
- /*!
    * \brief Compute the viscous flow residual using average gradient method.
    * \param[out] val_residual - Pointer to the total residual.
    * \param[out] val_Jacobian_i - Jacobian of the numerical method at node i (implicit computation).
@@ -243,8 +206,77 @@ public:
   inline void SetExplicit(void) {
     implicit = false;
   }
+
+protected:
+  /*!
+   * \brief Compute projection of the viscous fluxes using Ramshaw self-consisten modification
+   * \param[in] val_primvar - Primitive variables.
+   * \param[in] val_grad_primvar - Gradient of the primitive variables.
+   * \param[in] val_normal - Normal vector, the norm of the vector is the area of the face.
+   * \param[in] val_viscosity - Laminar viscosity.
+   * \param[in] val_eddy_viscosity - Eddy viscosity.
+   * \param[in] val_thermal_conductivity - Thermal Conductivity.
+   * \param[in] val_turb_ke - Turbulent kinetic energy.
+   * \param[in] val_diffusioncoeff - Effective diffusion coefficients for each species in the mixture.
+   * \param[in] config - Definition of the particular problem
+   */
+  void GetViscousProjFlux(const Vec& val_primvar, const RealMatrix& val_grad_primvar, su2double* val_normal,
+                          const su2double val_viscosity, const su2double val_eddy_viscosity, const su2double val_therm_conductivity,
+                          const su2double val_turb_ke, const RealVec& val_diffusioncoeff, CConfig* config);
+
+  /*!
+   * \brief Compute projection of the viscous fluxes solving Stefan-Maxwell equations
+   * \param[in] val_primvar - Primitive variables.
+   * \param[in] val_grad_primvar - Gradient of the primitive variables.
+   * \param[in] val_normal - Normal vector, the norm of the vector is the area of the face.
+   * \param[in] val_viscosity - Laminar viscosity.
+   * \param[in] val_eddy_viscosity - Eddy viscosity.
+   * \param[in] val_thermal_conductivity - Thermal Conductivity.
+   * \param[in] val_turb_ke - Turbulent kinetic energy.
+   * \param[in] val_Dij - Harmonic average of binary diffusion coefficients.
+   * \param[in] config - Definition of the particular problem
+   */
+  void GetViscousProjFlux(const Vec& val_primvar, const RealMatrix& val_grad_primvar, su2double* val_normal,
+                          const su2double val_viscosity, const su2double val_eddy_viscosity, const su2double val_therm_conductivity,
+                          const su2double val_turb_ke, const RealMatrix& val_Dij, CConfig* config);
+
+  /*!
+   * \brief Approximation of Viscous NS Jacobians in Thermochemical Non Equilibrium.
+   * \param[in] val_Mean_PrimVar - Mean value of the primitive variables.
+   * \param[in] val_Mean_GradPriVar - Mean value of the gradient of the primitive variables.
+   * \param[in] val_diffusion_coeff - Value of diffusion coefficients for each species
+   * \param[in] val_laminar_viscosity - Value of the laminar viscosity.
+   * \param[in] val_eddy_viscosity - Eddy viscosity.
+   * \param[in] val_thermal_conductivity - Value of the thermal conductivity.
+   * \param[in] val_turb_ke - Turbulent kinetic energy.
+   * \param[in] val_dist_ij - Distance between the points.
+   * \param[in] val_normal - Normal vector
+   * \param[in] val_dS - Area of the face between two nodes.
+   * \param[in] val_Proj_Visc_Flux - Pointer to the projected viscous flux.
+   * \param[out] val_Proj_Jac_Tensor_i - Pointer to the projected viscous Jacobian at point i.
+   * \param[out] val_Proj_Jac_Tensor_j - Pointer to the projected viscous Jacobian at point j.
+   * \param[in] config - Definition of the particular problem
+  */
+  void GetViscousProjJacs(const Vec& val_Mean_PrimVar, const RealMatrix& val_Mean_GradPrimVar,
+                          const RealVec& val_diffusion_coeff, const su2double val_laminar_viscosity,
+                          const su2double val_eddy_viscosity, const su2double val_thermal_conductivity,
+                          const su2double val_turb_ke, const su2double val_dist_ij, su2double* val_normal,
+                          const su2double val_dS, su2double* val_Proj_Visc_Flux, su2double** val_Proj_Jac_Tensor_i,
+                          su2double** val_Proj_Jac_Tensor_j, CConfig* config);
+
+private:
+  /*!
+   * \brief Compute the diffusive flux along a certain direction
+   * \param[in] val_density - Density of the mixture.
+   * \param[in] val_alpha - Parameter for artifical diffusion.
+   * \param[in] val_Dij - Harmonic average of binary diffusion coefficients.
+   * \param[in] val_xs - Molar fractions.
+   * \param[in] val_grad_xs - Component along the desired dimension of gradient of molar fractions.
+   * \param[in] val_ys - Mass fractions.
+   */
+  void Solve_SM(const su2double val_density, const su2double val_alpha, const RealMatrix& val_Dij,
+                const RealVec& val_xs, const Vec& val_grad_xs, const RealVec& val_ys);
 };
-const unsigned short CAvgGradReactive_Flow::RHOS_INDEX_AVGGRAD = CAvgGradReactive_Flow::VX_INDEX_AVGGRAD + CReactiveNSVariable::GetnDim();
 
 /*!
  * \class CSourceReactive
@@ -255,6 +287,7 @@ class CSourceReactive: public CNumerics {
 public:
   using RealVec = CReactiveEulerVariable::RealVec;
   using LibraryPtr = CReactiveEulerVariable::LibraryPtr;
+  using RealMatrix = CReactiveNSVariable::RealMatrix;
 
 protected:
   LibraryPtr library; /*!< \brief Smart pointer to the library that computes physical-chemical properties. */
@@ -266,22 +299,46 @@ protected:
   RealVec Ys; /*!< \brief Auxiliary vector for mass fractions in the mixture. */
 
 private:
+  unsigned short T_INDEX_PRIM, VX_INDEX_PRIM,
+                 P_INDEX_PRIM, RHO_INDEX_PRIM,
+                 H_INDEX_PRIM, A_INDEX_PRIM,
+                 RHOS_INDEX_PRIM;               /*!< \brief Mapping for position in primitives array. */
+
+  unsigned short RHO_INDEX_SOL, RHOVX_INDEX_SOL,
+                 RHOE_INDEX_SOL, RHOS_INDEX_SOL; /*!< \brief Mapping for position in conserved array. */
+
+  unsigned short T_INDEX_GRAD, VX_INDEX_GRAD,
+                 P_INDEX_GRAD;                 /*!< \brief Mapping for position in primitives gradient. */
+
+  unsigned short T_INDEX_LIM, VX_INDEX_LIM,
+                 P_INDEX_LIM;                 /*!< \brief Mapping for position for limited variables. */
+
+private:
   RealVec omega; /*!< \brief Auxiliary vector for mass production term. */
 
+  RealMatrix source_jac; /*!< \brief Auxiliary vector for mass production term. */
+
 public:
+  /*!
+   * \brief Default constructor of the class.
+   */
+  CSourceReactive(): CNumerics(), implicit(), nSpecies(), T_INDEX_PRIM(), VX_INDEX_PRIM(), P_INDEX_PRIM(), RHO_INDEX_PRIM(), H_INDEX_PRIM(),
+                     A_INDEX_PRIM(), RHOS_INDEX_PRIM(), RHO_INDEX_SOL(), RHOVX_INDEX_SOL(), RHOE_INDEX_SOL(), RHOS_INDEX_SOL(),
+                     T_INDEX_GRAD(), VX_INDEX_GRAD(), P_INDEX_GRAD(), T_INDEX_LIM(), VX_INDEX_LIM(), P_INDEX_LIM() {}
 
   /*!
    * \brief Constructor of the class.
    * \param[in] val_nDim - Number of dimensions of the problem.
    * \param[in] val_nVar - Number of variables of the problem.
    * \param[in] config - Definition of the particular problem.
+   * \param[in] lib_ptr - Pointer to the external library for physical-chemical properties
    */
-  CSourceReactive(unsigned short val_nDim, unsigned short val_nVar, CConfig* config);
+  CSourceReactive(unsigned short val_nDim, unsigned short val_nVar, CConfig* config, LibraryPtr lib_ptr);
 
   /*!
    * \brief Destructor of the class.
    */
-  virtual ~CSourceReactive() {}
+  virtual ~CSourceReactive() = default;
 
   /*!
    * \brief Calculation of the residual of chemistry source term
