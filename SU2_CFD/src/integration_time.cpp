@@ -57,6 +57,7 @@ void CMultiGridIntegration::MultiGrid_Iteration(CGeometry ***geometry,
                        (config[iZone]->GetKind_Solver() == RANS)                          ||
                        (config[iZone]->GetKind_Solver() == REACTIVE_EULER)                ||
                        (config[iZone]->GetKind_Solver() == REACTIVE_NAVIER_STOKES)        ||
+                       (config[iZone]->GetKind_Solver() == REACTIVE_RANS)                 ||
                        (config[iZone]->GetKind_Solver() == DISC_ADJ_EULER)                ||
                        (config[iZone]->GetKind_Solver() == DISC_ADJ_NAVIER_STOKES)        ||
                        (config[iZone]->GetKind_Solver() == DISC_ADJ_RANS));
