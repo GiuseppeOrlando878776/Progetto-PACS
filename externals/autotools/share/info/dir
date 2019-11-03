@@ -33,7 +33,7 @@ Individual utilities
 * configure: (autoconf)configure Invocation.    Configuring a package.
 * ifnames: (autoconf)ifnames Invocation.        Listing conditionals in source.
 * libtool-invocation: (libtool)Invoking libtool.
-                                                Running the `libtool' script.
+                                                Running the 'libtool' script.
 * libtoolize: (libtool)Invoking libtoolize.     Adding libtool support.
 * testsuite: (autoconf)testsuite Invocation.    Running an Autotest test suite.
 
